@@ -4,6 +4,7 @@
 
 /docs/
 /CLAUDE.md
+/AGENTS.md
 /.ralph/
 /.superpowers/
 
@@ -24,3 +25,6 @@
 # Parallel implementation worktrees, never content.
 /.worktrees
 .superpowers/
+
+# Folder for reference for AI-agents
+/examples
