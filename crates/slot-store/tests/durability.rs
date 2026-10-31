@@ -605,3 +605,26 @@ fn lid_power_off_minutes_round_trip_and_drop_a_value_the_menu_does_not_offer() {
     std::fs::write(&path, text).unwrap();
     assert_eq!(read_slot_state(d.path()).lid_off_min, None);
 }
+
+#[test]
+fn retro_tiles_round_trips_for_every_console_without_changing_defaults() {
+    let d = tmp_root();
+    assert_eq!(Shader::parse("retro_tiles"), Some(Shader::RetroTiles));
+    let s = SlotState {
+        shader_gba: Shader::RetroTiles,
+        shader_gb: Shader::RetroTiles,
+        shader_gbc: Shader::RetroTiles,
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    assert_eq!(read_slot_state(d.path()), s);
+    std::fs::write(
+        d.path().join("Config/slot.state"),
+        "shader_gba=simpletex\nshader_gb=dot\nshader_gbc=unknown\n",
+    )
+    .unwrap();
+    let fallback = read_slot_state(d.path());
+    assert_eq!(fallback.shader_gba, Shader::Grid);
+    assert_eq!(fallback.shader_gb, Shader::Simpletex);
+    assert_eq!(fallback.shader_gbc, Shader::Simpletex);
+}

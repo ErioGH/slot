@@ -419,7 +419,9 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     );
     for (btn, want, shown) in [
         (Btn::Right, Shader::Dot, QuickValue::Dot),
+        (Btn::Right, Shader::RetroTiles, QuickValue::RetroTiles),
         (Btn::Right, Shader::Off, QuickValue::Off),
+        (Btn::Left, Shader::RetroTiles, QuickValue::RetroTiles),
         (Btn::Left, Shader::Dot, QuickValue::Dot),
         (Btn::Left, Shader::Grid, QuickValue::Grid),
         (Btn::Left, Shader::Lcd3x, QuickValue::Lcd3x),
@@ -453,7 +455,7 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     let s = read_slot_state(d.path());
     assert_eq!(
         (s.shader_gba, s.shader_gb, s.shader_gbc),
-        (Shader::Off, Shader::Grid, Shader::Off)
+        (Shader::Off, Shader::Grid, Shader::RetroTiles)
     );
 }
 
@@ -1363,4 +1365,36 @@ fn lid_power_off_steps_through_its_minutes_wraps_and_saves() {
     }
     press(&mut a, Btn::Left);
     assert_eq!(a.lid_off_min(), 1);
+}
+
+#[test]
+fn game_boy_shader_rows_select_retro_tiles_and_wrap_independently() {
+    for row in [QuickRow::GbShader, QuickRow::GbcShader] {
+        let (d, mut a, _) = on_carousel();
+        open_at(&mut a, row);
+        for (button, want) in [
+            (Btn::Right, QuickValue::RetroTiles),
+            (Btn::Right, QuickValue::Off),
+            (Btn::Left, QuickValue::RetroTiles),
+        ] {
+            press(&mut a, button);
+            assert_eq!(a.quick_value(row), Some(want));
+            let stored = read_slot_state(d.path());
+            let (selected, other) = if row == QuickRow::GbShader {
+                (stored.shader_gb, stored.shader_gbc)
+            } else {
+                (stored.shader_gbc, stored.shader_gb)
+            };
+            assert_eq!(
+                selected,
+                if want == QuickValue::Off {
+                    Shader::Off
+                } else {
+                    Shader::RetroTiles
+                }
+            );
+            assert_eq!(other, Shader::Simpletex);
+            assert_eq!(stored.shader_gba, Shader::Grid);
+        }
+    }
 }
