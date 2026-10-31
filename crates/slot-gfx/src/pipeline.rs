@@ -14,6 +14,7 @@ pub struct GamePass {
     prog: gl::types::GLuint,
     game: gl::types::GLuint,
     u_rect: gl::types::GLint,
+    u_fit_rect: gl::types::GLint,
     u_bright: gl::types::GLint,
     u_uv: gl::types::GLint,
     u_mode: gl::types::GLint,
@@ -46,7 +47,7 @@ impl GamePass {
             crate::gl::gray_format(),
             Some(&[255]),
         );
-        let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
+        let (u_fit_rect, u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
         unsafe {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_game"), 0);
@@ -61,6 +62,7 @@ impl GamePass {
                 OUT_H as f32,
             );
             u_rect = crate::gl::uniform_location(prog, "u_rect");
+            u_fit_rect = crate::gl::uniform_location(prog, "u_fit_rect");
             u_bright = crate::gl::uniform_location(prog, "u_bright");
             u_uv = crate::gl::uniform_location(prog, "u_uv");
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_paper"), 1);
@@ -74,6 +76,7 @@ impl GamePass {
             prog,
             game,
             u_rect,
+            u_fit_rect,
             u_bright,
             u_uv,
             u_mode,
@@ -187,6 +190,12 @@ impl GamePass {
 
     fn draw_source(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4]) {
         let (x, y, w, h) = self.placed();
+        // RetroTiles fits before the footer clips the drawing rectangle.
+        let (fx, fy, fw, fh) = if self.fills {
+            (0.0, 0.0, OUT_W as f32, OUT_H as f32)
+        } else {
+            screen_rect_above(self.power, 0.0)
+        };
         let bright = if self.fills {
             1.0
         } else {
@@ -201,6 +210,7 @@ impl GamePass {
         unsafe {
             gl::UseProgram(self.prog);
             gl::Uniform4f(self.u_rect, x, y, w, h);
+            gl::Uniform4f(self.u_fit_rect, fx, fy, fw, fh);
             gl::Uniform4f(self.u_uv, src[0], src[1], src[2], src[3]);
             gl::Uniform1f(self.u_bright, bright);
             gl::Uniform1f(self.u_mode, self.effect.mode());

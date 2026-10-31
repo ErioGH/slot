@@ -16,11 +16,19 @@ pub enum ScreenEffect {
     Grid,
     Dot,
     Simpletex,
+    RetroTiles,
 }
 
 impl ScreenEffect {
     pub fn mode(self) -> f32 {
-        self as u8 as f32
+        match self {
+            Self::None => 0.0,
+            Self::Lcd3x => 1.0,
+            Self::Grid => 2.0,
+            Self::Dot => 3.0,
+            Self::Simpletex => 4.0,
+            Self::RetroTiles => 5.0,
+        }
     }
 }
 

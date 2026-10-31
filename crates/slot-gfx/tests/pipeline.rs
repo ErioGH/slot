@@ -8,8 +8,15 @@ static GL: Mutex<()> = Mutex::new(());
 
 fn compositor() -> Option<(MutexGuard<'static, ()>, HeadlessSurface, Compositor)> {
     let guard = GL.lock().unwrap_or_else(PoisonError::into_inner);
-    let surface = HeadlessSurface::new().ok()?;
-    let compositor = Compositor::new(&surface).ok()?;
+    let surface = match HeadlessSurface::new() {
+        Ok(surface) => surface,
+        Err(error) => {
+            eprintln!("skipping graphics test: headless GL unavailable: {error:?}");
+            return None;
+        }
+    };
+    let compositor = Compositor::new(&surface)
+        .expect("compositor initialization failed with a working GL context");
     Some((guard, surface, compositor))
 }
 
@@ -780,4 +787,142 @@ fn the_dot_shader_keeps_a_white_screen_a_little_over_half_lit() {
         (0.50..0.56).contains(&mean),
         "a white cell averages {mean} under the dot shader"
     );
+}
+
+#[test]
+fn retro_tiles_matches_the_reference_default_gamma_and_tile_profile() {
+    let Some((_guard, _surface, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_effect(ScreenEffect::RetroTiles);
+    c.begin_frame();
+    c.upload_game(&flat_shot([64, 64, 64]));
+    c.draw_game();
+    let frame = c.read_frame();
+    // At 3x the cell offsets are -1/3, 0, +1/3. The supplied shader's
+    // normal tile profile is (1 - (offset / 0.5)^5)^2 in each axis.
+    let weights = [
+        (1.0 + (2.0_f32 / 3.0).powi(5)).powi(2),
+        1.0,
+        (1.0 - (2.0_f32 / 3.0).powi(5)).powi(2),
+    ];
+    for (y, wy) in weights.iter().enumerate() {
+        for (x, wx) in weights.iter().enumerate() {
+            let expected =
+                (255.0 * ((64.0_f32 / 255.0).powf(2.4) * wx * wy).powf(1.0 / 2.2)).round() as u8;
+            let got = px(&frame, 300 + x, 240 + y);
+            assert!(
+                got.iter().all(|v| v.abs_diff(expected) <= 2),
+                "{x},{y}: {got:?}, expected {expected}"
+            );
+        }
+    }
+    c.set_screen_effect(ScreenEffect::None);
+    c.begin_frame();
+    c.draw_game();
+    assert_eq!(px(&c.read_frame(), 301, 241), [64; 3]);
+}
+
+#[test]
+fn retro_tiles_centres_integer_scaled_console_pictures_without_padding_bleed() {
+    let Some((_guard, _surface, mut c)) = compositor() else {
+        return;
+    };
+    for window in [(720, 480), (600, 400)] {
+        for (w, h) in [(240, 160), (160, 144)] {
+            c.fit(window);
+            c.set_screen_effect(ScreenEffect::RetroTiles);
+            let x = (SRC_W - w) / 2;
+            let y = (SRC_H - h) / 2;
+            c.set_picture([
+                x as f32 / SRC_W as f32,
+                y as f32 / SRC_H as f32,
+                (x + w) as f32 / SRC_W as f32,
+                (y + h) as f32 / SRC_H as f32,
+            ]);
+            // A stretched source must not override RetroTiles' integer fit.
+            c.set_game_source_rect([0.1, 0.0, 0.8, 1.0]);
+            let src = if w == 160 {
+                gb_shaped(|_, _| [64; 3], [255, 0, 0])
+            } else {
+                flat_shot([64; 3])
+            };
+            c.begin_frame();
+            c.upload_game(&src);
+            c.draw_game();
+            let frame = c.read_window(window);
+            let zoom = (window.0 / w).min(window.1 / h);
+            let left = (window.0 - w * zoom) / 2;
+            let top = (window.1 - h * zoom) / 2;
+            for py in 0..window.1 {
+                for px in 0..window.0 {
+                    let at = ((py * window.0 + px) * 4) as usize;
+                    let rgb = &frame[at..at + 3];
+                    let inside = (left..left + w * zoom).contains(&px)
+                        && (top..top + h * zoom).contains(&py);
+                    if inside {
+                        assert!(
+                            rgb[0] > 0,
+                            "missing picture at {px},{py}, {window:?}, {w}x{h}"
+                        );
+                        assert_eq!(rgb[0], rgb[1], "padding leaked at {px},{py}");
+                        assert_eq!(rgb[1], rgb[2]);
+                    } else {
+                        assert_eq!(rgb, [0, 0, 0], "outside picture at {px},{py}");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn retro_tiles_footer_crops_without_moving_or_rescaling_visible_pixels() {
+    let Some((_guard, _surface, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_effect(ScreenEffect::RetroTiles);
+    // Vary both axes so rescaling or translating the source cannot pass as
+    // an unchanged flat colour. Exercise both game and still-image drawing.
+    let mut source = Vec::new();
+    for y in 0..SRC_H {
+        for x in 0..SRC_W {
+            source.extend_from_slice(&[(x % 180 + 30) as u8, (y + 30) as u8, 64, 255]);
+        }
+    }
+    let still = c.create_texture_nearest(SRC_W, SRC_H, &source);
+    for fills in [false, true] {
+        c.set_game_fills_frame(fills);
+        for saved in [false, true] {
+            c.set_screen_footer(0.0);
+            c.begin_frame();
+            c.upload_game(&source);
+            if saved {
+                c.draw_list(&[Draw::Shot { tex: still }]);
+            } else {
+                c.draw_game();
+            }
+            let before = c.read_frame();
+            for footer in [1.0, 12.0, 48.0] {
+                c.set_screen_footer(footer);
+                c.begin_frame();
+                if saved {
+                    c.draw_list(&[Draw::Shot { tex: still }]);
+                } else {
+                    c.draw_game();
+                }
+                let after = c.read_frame();
+                let visible = (OUT_H - footer as u32) as usize * OUT_W as usize * 4;
+                for (a, b) in before[..visible].iter().zip(&after[..visible]) {
+                    assert!(
+                        a.abs_diff(*b) <= 1,
+                        "footer {footer}, fills {fills}, still {saved}: {a} -> {b}"
+                    );
+                }
+                assert_ne!(&before[visible..], &after[visible..], "footer did not clip");
+            }
+        }
+    }
 }

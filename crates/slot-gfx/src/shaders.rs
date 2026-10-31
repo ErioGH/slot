@@ -62,6 +62,7 @@ uniform float u_paper_size;
 uniform vec2 u_origin;
 uniform vec4 u_rect;
 uniform vec2 u_fbo;
+uniform vec4 u_fit_rect;
 uniform vec4 u_pic;
 varying vec2 v_uv;
 const vec3 offsets = vec3(3.141592654) * vec3(1.0 / 2.0, 1.0 / 2.0 - 2.0 / 3.0, 1.0 / 2.0 - 4.0 / 3.0);
@@ -72,7 +73,73 @@ vec2 grid_band(vec2 x) {
 float dot_weight(vec2 f, vec2 o, float bloom) {
     return exp(-4.0 * length(f - (o + vec2(0.5))) * bloom);
 }
+/*
+   Hyllian's RetroTiles Shader
+
+   Copyright (C) 2011-2022 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+*/
+// RetroTiles defaults: normal format, depth 1, size 0.5, boost 1,
+// overscan 0, input gamma 2.4, output gamma 2.2.
+float tile_fade(float size) {
+    size = clamp(size, -1.0, 1.0);
+    float weight = 1.0 - size * size * size * size * size;
+    return weight * weight;
+}
+vec3 tile_sample(vec2 uv) {
+    // The GB/GBC picture is embedded in a larger texture. Clamp samples
+    // to picture texel centers, not to the surrounding padding.
+    vec2 half_texel = 0.5 / u_src;
+    return pow(texture2D(u_game, clamp(uv, u_pic.xy + half_texel,
+                                     u_pic.zw - half_texel)).rgb, vec3(2.4));
+}
+vec3 retro_tiles() {
+    vec2 picture = (u_pic.zw - u_pic.xy) * u_src;
+    vec2 output_size = u_fit_rect.zw * u_fbo;
+    float zoom = max(1.0, floor(min(output_size.x / picture.x,
+                                    output_size.y / picture.y)));
+    // Snap the origin to output pixels. Below 1x, crop instead of dividing
+    // by zero or introducing a fractional scale.
+    vec2 origin = floor((output_size - picture * zoom) * 0.5);
+    // Map the clipped quad into the original fit rectangle, keeping the
+    // same picture position and scale throughout the footer animation.
+    vec2 output_pixel = (u_rect.xy - u_fit_rect.xy + v_uv * u_rect.zw) * u_fbo;
+    vec2 pixel = (output_pixel - origin) / zoom;
+    if (any(lessThan(pixel, vec2(0.0))) || any(greaterThanEqual(pixel, picture))) {
+        return vec3(0.0);
+    }
+    vec2 uv = u_pic.xy + pixel / u_src;
+    vec2 pos = fract(pixel) - 0.5;
+    // At the fixed tile size of 0.5, (1.0 - pos) / 0.5 is at least
+    // 1.0, so the reference's neighbor weights are zero. Adjustable tile
+    // sizes above 0.5 would require restoring the neighbor samples.
+    vec3 a = tile_sample(uv);
+    float wx = tile_fade(pos.x / 0.5);
+    float wy = tile_fade(pos.y / 0.5);
+    return pow(a * wx * wy, vec3(1.0 / 2.2));
+}
 void main() {
+    if (u_mode > 4.5) {
+        FRAG_COLOR = vec4(retro_tiles() * u_bright, 1.0);
+        return;
+    }
     vec2 uv = u_uv.xy + v_uv * u_uv.zw;
     vec2 f = fract(uv * u_src);
     vec3 c = texture2D(u_game, uv).rgb;
