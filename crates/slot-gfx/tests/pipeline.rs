@@ -829,7 +829,7 @@ fn retro_tiles_centres_integer_scaled_console_pictures_without_padding_bleed() {
     let Some((_guard, _surface, mut c)) = compositor() else {
         return;
     };
-    for window in [(720, 480), (600, 400)] {
+    for window in [(720, 480), (600, 400), (640, 480)] {
         for (w, h) in [(240, 160), (160, 144)] {
             c.fit(window);
             c.set_screen_effect(ScreenEffect::RetroTiles);
@@ -852,9 +852,14 @@ fn retro_tiles_centres_integer_scaled_console_pictures_without_padding_bleed() {
             c.upload_game(&src);
             c.draw_game();
             let frame = c.read_window(window);
-            let zoom = (window.0 / w).min(window.1 / h);
-            let left = (window.0 - w * zoom) / 2;
-            let top = (window.1 - h * zoom) / 2;
+            let (vx, vy, vw, vh) = if window == (640, 480) {
+                slot_gfx::game_rect(window, true)
+            } else {
+                (0, 0, window.0 as i32, window.1 as i32)
+            };
+            let zoom = (vw as u32 / w).min(vh as u32 / h);
+            let left = vx as u32 + (vw as u32 - w * zoom) / 2;
+            let top = vy as u32 + (vh as u32 - h * zoom) / 2;
             for py in 0..window.1 {
                 for px in 0..window.0 {
                     let at = ((py * window.0 + px) * 4) as usize;
@@ -868,7 +873,9 @@ fn retro_tiles_centres_integer_scaled_console_pictures_without_padding_bleed() {
                         );
                         assert_eq!(rgb[0], rgb[1], "padding leaked at {px},{py}");
                         assert_eq!(rgb[1], rgb[2]);
-                    } else {
+                    } else if (vx..vx + vw).contains(&(px as i32))
+                        && (vy..vy + vh).contains(&(py as i32))
+                    {
                         assert_eq!(rgb, [0, 0, 0], "outside picture at {px},{py}");
                     }
                 }
@@ -923,6 +930,46 @@ fn retro_tiles_footer_crops_without_moving_or_rescaling_visible_pixels() {
                 }
                 assert_ne!(&before[visible..], &after[visible..], "footer did not clip");
             }
+        }
+    }
+}
+
+#[test]
+fn retro_tiles_stills_match_live_frames_on_wide_and_four_by_three_outputs() {
+    let Some((_guard, _surface, mut c)) = compositor() else {
+        return;
+    };
+    for window in [(720, 480), (640, 480)] {
+        for picture in [
+            WHOLE,
+            [40.0 / 240.0, 8.0 / 160.0, 200.0 / 240.0, 152.0 / 160.0],
+        ] {
+            let mut rgba = Vec::new();
+            for y in 0..SRC_H {
+                for x in 0..SRC_W {
+                    rgba.extend_from_slice(&[(x % 180 + 30) as u8, (y + 30) as u8, 64, 255]);
+                }
+            }
+            let mut bgra = rgba.clone();
+            for pixel in bgra.chunks_exact_mut(4) {
+                pixel.swap(0, 2);
+            }
+            let still = c.create_texture_nearest(SRC_W, SRC_H, &rgba);
+            c.fit(window);
+            c.set_picture(picture);
+            c.set_screen_effect(ScreenEffect::RetroTiles);
+            c.set_game_source_rect(WHOLE);
+            c.begin_frame();
+            c.upload_game(&bgra);
+            c.draw_game();
+            let live = c.read_window(window);
+            c.begin_frame();
+            c.draw_list(&[Draw::Shot { tex: still }]);
+            assert_eq!(
+                live,
+                c.read_window(window),
+                "still differs on {window:?}, {picture:?}"
+            );
         }
     }
 }

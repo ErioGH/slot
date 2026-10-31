@@ -12,8 +12,11 @@ Shaders make the picture look more like a real handheld screen.
 | LCD3x | LCD3x |
 | Grid (default) | Grid |
 | Dot | Simpletex (default) |
+| RetroTiles | RetroTiles |
 
 <kbd>SELECT</kbd> + <kbd>A</kbd> and <kbd>SELECT</kbd> + <kbd>B</kbd> step through them while you play.
+
+RetroTiles gives pixels a raised tile appearance. It uses whole-number scaling with the same scale on both axes, preserving the game’s proportions. The picture is centered within the game area; unused space appears as margins.
 
 ## Color correction
 
@@ -36,6 +39,8 @@ Palettes only apply to original Game Boy games.
 ## Stretching
 
 Just like the OG, <kbd>L1</kbd> stretches Game Boy and Game Boy Color games across the screen. <kbd>R1</kbd> puts them back. slot remembers your pick per game.
+
+While RetroTiles is selected, the picture stays integer-scaled even when Stretch is selected. Your saved Actual/Stretch preference is retained and takes effect again when you switch to another shader.
 
 Bezels are hidden while a game is stretched.
 

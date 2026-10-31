@@ -2322,3 +2322,30 @@ fn the_shader_shortcut_does_nothing_in_the_save_state_switcher() {
     assert_eq!(slot_store::read_slot_state(d.path()).shader_gba, before);
     assert_eq!(a.toast(), None);
 }
+
+#[test]
+fn shader_actions_preserve_picture_preferences_changed_during_retro_tiles() {
+    use slot_store::Shader;
+    for d in [
+        common::tmp_root_with_gb_carts(&["Tetris", "Zzz"]),
+        common::tmp_root_with_gbc_carts(&["Tetris", "Zzz"]),
+    ] {
+        let mut s = session_playing(d.path());
+        for (button, mode, rect) in [
+            (Btn::L1, VideoMode::Stretch, GB_WINDOW),
+            (Btn::R1, VideoMode::Actual, WHOLE_TEXTURE),
+        ] {
+            s.app_mut().apply(Action::ShaderNext);
+            assert_eq!(s.app().screen_shader(), Shader::RetroTiles);
+            s.app_mut().apply(Action::GbaDown(button));
+            s.app_mut().apply(Action::GbaUp(button));
+            assert_eq!(video_mode_for(d.path(), "Tetris"), mode);
+            assert_eq!(s.app().source_rect(), rect);
+            s.app_mut().apply(Action::ShaderPrev);
+            assert_eq!(s.app().screen_shader(), Shader::Simpletex);
+            assert_eq!(video_mode_for(d.path(), "Tetris"), mode);
+            assert_eq!(s.app().source_rect(), rect);
+            assert_eq!(video_mode_for(d.path(), "Zzz"), VideoMode::Actual);
+        }
+    }
+}

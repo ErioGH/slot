@@ -225,3 +225,175 @@ fn l_widens_the_picture_like_a_gba_and_r_gives_back_the_centred_picture() {
         "R left the panel dark"
     );
 }
+
+#[test]
+fn retro_tiles_renderer_ignores_stretch_and_restores_other_effects() {
+    let _core = core_lock();
+    let surface = match HeadlessSurface::new() {
+        Ok(surface) => surface,
+        Err(error) => {
+            eprintln!("headless GL unavailable, skipping: {error:?}");
+            return;
+        }
+    };
+    let mut c = Compositor::new(&surface).expect("compositor initialization failed");
+    use slot::video_mode::{source_rect, VideoMode};
+    use slot_gfx::{ScreenEffect, SRC_H, SRC_W};
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let (w, h) = platform.picture();
+        let (x0, y0) = ((SRC_W - w) / 2, (SRC_H - h) / 2);
+        let picture = [
+            x0 as f32 / SRC_W as f32,
+            y0 as f32 / SRC_H as f32,
+            (x0 + w) as f32 / SRC_W as f32,
+            (y0 + h) as f32 / SRC_H as f32,
+        ];
+        let mut source = Vec::new();
+        for y in 0..SRC_H {
+            for x in 0..SRC_W {
+                let grey = if (x0..x0 + w).contains(&x) && (y0..y0 + h).contains(&y) {
+                    40 + ((x + y) % 100) as u8
+                } else {
+                    0
+                };
+                source.extend_from_slice(&[grey, grey, grey, 255]);
+            }
+        }
+        for window in [(720, 480), (640, 480)] {
+            let mut integer_picture = None;
+            for mode in [VideoMode::Actual, VideoMode::Stretch] {
+                c.fit(window);
+                c.set_picture(picture);
+                c.set_game_source_rect(source_rect(platform, mode));
+                for previous in [ScreenEffect::None, ScreenEffect::Lcd3x, ScreenEffect::Grid] {
+                    c.set_screen_effect(previous);
+                    c.begin_frame();
+                    c.upload_game(&source);
+                    c.draw_game();
+                    let before = c.read_window(window);
+                    c.set_screen_effect(ScreenEffect::RetroTiles);
+                    c.begin_frame();
+                    c.draw_game();
+                    let tiles = c.read_window(window);
+                    assert_ne!(
+                        before, tiles,
+                        "RetroTiles did not change {platform:?} {mode:?}"
+                    );
+                    if let Some(ref expected) = integer_picture {
+                        assert_eq!(
+                            &tiles, expected,
+                            "stretch changed RetroTiles on {platform:?}"
+                        );
+                    } else {
+                        integer_picture = Some(tiles);
+                    }
+                    c.set_screen_effect(previous);
+                    c.begin_frame();
+                    c.draw_game();
+                    assert_eq!(
+                        before,
+                        c.read_window(window),
+                        "did not restore {previous:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn frontend_shader_shortcuts_map_retro_tiles_and_keep_the_changed_picture_mode() {
+    use slot::app::Phase;
+    use slot::video_mode::{source_rect, video_mode_for, VideoMode};
+    use slot_gfx::{ScreenEffect, SRC_H, SRC_W};
+    use slot_store::Shader;
+
+    let _core = core_lock();
+    let surface = match HeadlessSurface::new() {
+        Ok(surface) => surface,
+        Err(error) => {
+            eprintln!("headless GL unavailable, skipping: {error:?}");
+            return;
+        }
+    };
+    let mut c = Compositor::new(&surface).expect("compositor initialization failed");
+    let d = tmp_root_with_gb_carts(&["Tetris"]);
+    clocked(d.path());
+    // Force the existing mock fallback, independent of installed emulator cores.
+    struct CoreOverride(Option<std::ffi::OsString>);
+    impl Drop for CoreOverride {
+        fn drop(&mut self) {
+            match self.0.take() {
+                Some(value) => std::env::set_var("SLOT_CORE", value),
+                None => std::env::remove_var("SLOT_CORE"),
+            }
+        }
+    }
+    let _override = CoreOverride(std::env::var_os("SLOT_CORE"));
+    std::env::set_var("SLOT_CORE", d.path().join("missing-core"));
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    let mut now = 0;
+    let mut feed = |f: &mut Frontend, events: Vec<RawEvent>| {
+        now += 16;
+        input.0.push_back(events);
+        f.advance_at(&mut input, now, 1.0 / 60.0);
+    };
+    feed(&mut f, vec![RawEvent::Down(Btn::A)]);
+    feed(&mut f, vec![RawEvent::Up(Btn::A)]);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !matches!(f.app().phase(), Phase::Playing { .. }) {
+        assert!(Instant::now() < deadline, "mock game never started");
+        f.compose(&mut c);
+        feed(&mut f, vec![]);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    for _ in 0..90 {
+        feed(&mut f, vec![]);
+    }
+    for (button, mode) in [(Btn::L1, VideoMode::Stretch), (Btn::R1, VideoMode::Actual)] {
+        // Default binding: Select+A selects the next shader, Select+B the previous.
+        for (shortcut, shader, effect) in [
+            (Btn::A, Shader::RetroTiles, ScreenEffect::RetroTiles),
+            (Btn::B, Shader::Simpletex, ScreenEffect::Simpletex),
+        ] {
+            feed(&mut f, vec![RawEvent::Down(Btn::Select)]);
+            feed(&mut f, vec![RawEvent::Down(shortcut)]);
+            feed(
+                &mut f,
+                vec![RawEvent::Up(shortcut), RawEvent::Up(Btn::Select)],
+            );
+            assert_eq!(f.app().screen_shader(), shader);
+            if shader == Shader::RetroTiles {
+                feed(&mut f, vec![RawEvent::Down(button)]);
+                feed(&mut f, vec![RawEvent::Up(button)]);
+            }
+            assert_eq!(video_mode_for(d.path(), "Tetris"), mode);
+            assert_eq!(f.app().source_rect(), source_rect(Platform::Gb, mode));
+            f.compose(&mut c);
+            // Probe the effect installed by compose with a deterministic frame,
+            // avoiding differences caused by the emulation worker or HUD animation.
+            c.begin_frame();
+            c.upload_game(&vec![96; (SRC_W * SRC_H * 4) as usize]);
+            c.draw_game();
+            let mapped = c.read_frame();
+            c.set_screen_effect(effect);
+            c.begin_frame();
+            c.draw_game();
+            assert_eq!(
+                mapped,
+                c.read_frame(),
+                "frontend mapped {shader:?} incorrectly"
+            );
+            c.set_screen_effect(ScreenEffect::None);
+            c.begin_frame();
+            c.draw_game();
+            assert_ne!(
+                mapped,
+                c.read_frame(),
+                "probe must distinguish the selected effect from Off"
+            );
+        }
+    }
+}

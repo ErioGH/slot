@@ -33,7 +33,7 @@ Each system has its own page.
 
 | Setting | Choices | Default |
 | --- | --- | --- |
-| Shader | GBA: Off, LCD3x, Grid, Dot. GB and GBC: Off, LCD3x, Grid, Simpletex | Grid on GBA, Simpletex on GB and GBC |
+| Shader | GBA: Off, LCD3x, Grid, Dot, RetroTiles. GB and GBC: Off, LCD3x, Grid, Simpletex, RetroTiles | Grid on GBA, Simpletex on GB and GBC |
 | Color Correction | On, Off | Off |
 | Palette | Game Boy only. Auto, then 48 palettes | Auto |
 | Bezel | None, Default, AGS-102, your own | AGS-102 on 640×480 devices, None elsewhere |
