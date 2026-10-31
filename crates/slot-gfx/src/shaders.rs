@@ -63,6 +63,7 @@ uniform vec2 u_origin;
 uniform vec4 u_rect;
 uniform vec2 u_fbo;
 uniform vec4 u_fit_rect;
+uniform vec3 u_tile_fit;
 uniform vec4 u_pic;
 varying vec2 v_uv;
 const vec3 offsets = vec3(3.141592654) * vec3(1.0 / 2.0, 1.0 / 2.0 - 2.0 / 3.0, 1.0 / 2.0 - 4.0 / 3.0);
@@ -112,12 +113,10 @@ vec3 tile_sample(vec2 uv) {
 }
 vec3 retro_tiles() {
     vec2 picture = (u_pic.zw - u_pic.xy) * u_src;
-    vec2 output_size = u_fit_rect.zw * u_fbo;
-    float zoom = max(1.0, floor(min(output_size.x / picture.x,
-                                    output_size.y / picture.y)));
-    // Snap the origin to output pixels. Below 1x, crop instead of dividing
-    // by zero or introducing a fractional scale.
-    vec2 origin = floor((output_size - picture * zoom) * 0.5);
+    // CPU-computed integer scale and pixel-aligned origin avoid GPU
+    // rounding down at exact-fit boundaries. Areas below 1x are cropped.
+    float zoom = u_tile_fit.x;
+    vec2 origin = u_tile_fit.yz;
     // Map the clipped quad into the original fit rectangle, keeping the
     // same picture position and scale throughout the footer animation.
     vec2 output_pixel = (u_rect.xy - u_fit_rect.xy + v_uv * u_rect.zw) * u_fbo;

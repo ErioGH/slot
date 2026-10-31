@@ -15,6 +15,7 @@ pub struct GamePass {
     game: gl::types::GLuint,
     u_rect: gl::types::GLint,
     u_fit_rect: gl::types::GLint,
+    u_tile_fit: gl::types::GLint,
     u_bright: gl::types::GLint,
     u_uv: gl::types::GLint,
     u_mode: gl::types::GLint,
@@ -47,7 +48,18 @@ impl GamePass {
             crate::gl::gray_format(),
             Some(&[255]),
         );
-        let (u_fit_rect, u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
+        let (
+            u_tile_fit,
+            u_fit_rect,
+            u_rect,
+            u_bright,
+            u_uv,
+            u_mode,
+            u_paper_size,
+            u_pic,
+            u_fbo,
+            u_origin,
+        );
         unsafe {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_game"), 0);
@@ -63,6 +75,7 @@ impl GamePass {
             );
             u_rect = crate::gl::uniform_location(prog, "u_rect");
             u_fit_rect = crate::gl::uniform_location(prog, "u_fit_rect");
+            u_tile_fit = crate::gl::uniform_location(prog, "u_tile_fit");
             u_bright = crate::gl::uniform_location(prog, "u_bright");
             u_uv = crate::gl::uniform_location(prog, "u_uv");
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_paper"), 1);
@@ -77,6 +90,7 @@ impl GamePass {
             game,
             u_rect,
             u_fit_rect,
+            u_tile_fit,
             u_bright,
             u_uv,
             u_mode,
@@ -211,6 +225,9 @@ impl GamePass {
             gl::UseProgram(self.prog);
             gl::Uniform4f(self.u_rect, x, y, w, h);
             gl::Uniform4f(self.u_fit_rect, fx, fy, fw, fh);
+            let (zoom, origin) =
+                tile_fit([fw * self.fbo_scale[0], fh * self.fbo_scale[1]], self.pic);
+            gl::Uniform3f(self.u_tile_fit, zoom as f32, origin[0], origin[1]);
             gl::Uniform4f(self.u_uv, src[0], src[1], src[2], src[3]);
             gl::Uniform1f(self.u_bright, bright);
             gl::Uniform1f(self.u_mode, self.effect.mode());
@@ -231,6 +248,22 @@ impl GamePass {
         }
         quad.draw();
     }
+}
+
+// Recover pixel dimensions before integer division. In particular, do not
+// floor a GPU floating-point quotient that may approximate 480 / 160 below 3.
+fn tile_fit(output: [f32; 2], picture: [f32; 4]) -> (u32, [f32; 2]) {
+    let width = ((picture[2] - picture[0]) * SRC_W as f32).round().max(1.0) as u32;
+    let height = ((picture[3] - picture[1]) * SRC_H as f32).round().max(1.0) as u32;
+    let out_width = output[0].round().max(0.0) as u32;
+    let out_height = output[1].round().max(0.0) as u32;
+    // Preserve the existing 1x crop when the animated area is smaller than a frame.
+    let zoom = (out_width / width).min(out_height / height).max(1);
+    let origin = [
+        ((out_width as f32 - width as f32 * zoom as f32) * 0.5).floor(),
+        ((out_height as f32 - height as f32 * zoom as f32) * 0.5).floor(),
+    ];
+    (zoom, origin)
 }
 
 fn whole_scale_source(src: [f32; 4], fbo: [f32; 2]) -> [f32; 4] {
@@ -257,5 +290,43 @@ impl Drop for GamePass {
             gl::DeleteTextures(1, &self.paper);
             gl::DeleteProgram(self.prog);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tile_fit, WHOLE_TEXTURE};
+
+    #[test]
+    fn gba_integer_fit_keeps_exact_multiples_and_rejects_a_missing_pixel() {
+        for (output, expected) in [
+            ([720.0, 480.0], 3),
+            ([719.0, 480.0], 2),
+            ([720.0, 479.0], 2),
+            ([640.0, 427.0], 2),
+            ([480.0, 320.0], 2),
+            ([240.0, 160.0], 1),
+            ([0.0, 0.0], 1),
+        ] {
+            assert_eq!(tile_fit(output, WHOLE_TEXTURE).0, expected, "{output:?}");
+        }
+    }
+
+    #[test]
+    fn tile_origin_stays_on_whole_pixels_at_exact_and_fractional_viewport_scales() {
+        assert_eq!(tile_fit([720.0, 480.0], WHOLE_TEXTURE), (3, [0.0, 0.0]));
+        assert_eq!(
+            tile_fit([599.99994, 399.99997], WHOLE_TEXTURE),
+            (2, [60.0, 40.0])
+        );
+    }
+
+    #[test]
+    fn normalized_game_boy_picture_uses_its_own_integer_dimensions() {
+        let gb = [40.0 / 240.0, 8.0 / 160.0, 200.0 / 240.0, 152.0 / 160.0];
+        assert_eq!(tile_fit([720.0, 480.0], gb).0, 3);
+        assert_eq!(tile_fit([480.0, 432.0], gb).0, 3);
+        assert_eq!(tile_fit([480.0, 431.0], gb).0, 2);
+        assert_eq!(tile_fit([640.0, 427.0], gb).0, 2);
     }
 }
