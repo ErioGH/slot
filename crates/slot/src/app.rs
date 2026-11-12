@@ -4761,19 +4761,6 @@ impl App {
         }
     }
 
-    pub fn screen_effect(&self) -> slot_gfx::ScreenEffect {
-        use slot_gfx::ScreenEffect;
-        match self.screen_shader() {
-            Shader::Off => ScreenEffect::None,
-            Shader::Lcd3x => ScreenEffect::lcd_for(self.panel),
-            Shader::Grid => ScreenEffect::Grid,
-            Shader::Dot => ScreenEffect::Dot,
-            Shader::Simpletex => ScreenEffect::Simpletex,
-            Shader::Shimmerless => ScreenEffect::Shimmerless,
-            Shader::DarkGrittyRetro => ScreenEffect::DarkGrittyRetro,
-        }
-    }
-
     pub fn colour_correction(&self) -> bool {
         self.colour_correction_for(self.playing_platform())
     }
@@ -6065,15 +6052,7 @@ impl App {
             ),
         };
         *shader = shader.step(choices, right);
-        let said = match *shader {
-            Shader::Off => Toast::ShaderOff,
-            Shader::Lcd3x => Toast::ShaderLcd3x,
-            Shader::Grid => Toast::ShaderGrid,
-            Shader::Dot => Toast::ShaderDot,
-            Shader::Simpletex => Toast::ShaderSimpletex,
-            Shader::Shimmerless => Toast::ShaderShimmerless,
-            Shader::DarkGrittyRetro => Toast::ShaderDarkGrittyRetro,
-        };
+        let said = shader_toast(*shader);
         self.persist();
         self.hud.toast(said, self.now());
     }
@@ -14764,17 +14743,7 @@ fn stretch_value(stretch: Stretch) -> QuickValue {
     }
 }
 
-fn shader_value(shader: Shader) -> QuickValue {
-    match shader {
-        Shader::Off => QuickValue::Off,
-        Shader::Lcd3x => QuickValue::Lcd3x,
-        Shader::Grid => QuickValue::Grid,
-        Shader::Dot => QuickValue::Dot,
-        Shader::Simpletex => QuickValue::Simpletex,
-        Shader::Shimmerless => QuickValue::Shimmerless,
-        Shader::DarkGrittyRetro => QuickValue::DarkGrittyRetro,
-    }
-}
+include!(concat!(env!("OUT_DIR"), "/shader_app.rs"));
 
 fn tint_alpha(tint: WallpaperTint) -> f32 {
     match tint {

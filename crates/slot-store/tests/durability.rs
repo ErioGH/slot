@@ -771,7 +771,11 @@ fn only_a_card_that_turned_turbo_off_reads_as_turbo_off() {
 #[test]
 fn every_catalog_shader_round_trips_independently() {
     let d = tmp_root();
-    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+    for (platform, key) in [
+        (Platform::Gba, "shader_gba"),
+        (Platform::Gb, "shader_gb"),
+        (Platform::Gbc, "shader_gbc"),
+    ] {
         for &shader in slot_store::shader_catalog(platform).available() {
             let mut state = SlotState::default();
             match platform {
@@ -781,6 +785,10 @@ fn every_catalog_shader_round_trips_independently() {
                 _ => unreachable!(),
             }
             write_slot_state(d.path(), &state).unwrap();
+            let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+            assert!(text
+                .lines()
+                .any(|line| line == format!("{key}={}", shader.name())));
             let read = read_slot_state(d.path());
             assert_eq!(read.shader_gba, state.shader_gba);
             assert_eq!(read.shader_gb, state.shader_gb);

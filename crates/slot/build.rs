@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::Command;
 
 fn git(args: &[&str]) -> Option<String> {
@@ -9,6 +10,15 @@ fn git(args: &[&str]) -> Option<String> {
 }
 
 fn main() {
+    let shader_dir =
+        PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../slot-gfx/shaders");
+    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    let inputs = slot_shader_build::generate_app(&shader_dir, &out_dir)
+        .unwrap_or_else(|error| panic!("shader generation failed: {error}"));
+    for input in inputs {
+        println!("cargo:rerun-if-changed={}", input.display());
+    }
+
     println!("cargo:rerun-if-changed=../../.git/HEAD");
     println!("cargo:rerun-if-changed=../../.git/logs/HEAD");
     println!("cargo:rerun-if-changed=../../.git/refs/tags");

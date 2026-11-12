@@ -2292,6 +2292,7 @@ dependencies = [
  "slot-input",
  "slot-power",
  "slot-retro",
+ "slot-shader-build",
  "slot-store",
  "slot-ui",
  "tempfile",
@@ -2352,6 +2353,7 @@ name = "slot-store"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "slot-shader-build",
  "tempfile",
  "unicode-normalization",
 ]

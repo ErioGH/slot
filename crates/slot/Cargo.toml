@@ -44,6 +44,9 @@ slot-gfx = { path = "../slot-gfx", default-features = false, features = ["test-s
 tempfile = { workspace = true }
 rqrr = "0.11"
 
+[build-dependencies]
+slot-shader-build = { path = "../slot-shader-build" }
+
 [[test]]
 name = "romm_ui"
 required-features = ["romm"]

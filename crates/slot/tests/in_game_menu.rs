@@ -875,6 +875,13 @@ fn shader_shortcuts_follow_the_gba_panel_catalog_and_wrap_both_ways() {
                     a.quick_value(QuickRow::Shader),
                     a.quick_value(QuickRow::GbaShader)
                 );
+                assert_eq!(
+                    a.toast().unwrap().text(),
+                    format!(
+                        "Shader: {}",
+                        a.quick_value(QuickRow::Shader).unwrap().text()
+                    )
+                );
                 if expected == Shader::DarkGrittyRetro {
                     assert_eq!(a.screen_effect(), slot_gfx::ScreenEffect::DarkGrittyRetro);
                     assert_eq!(

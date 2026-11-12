@@ -94,7 +94,7 @@ pub fn shader_catalog(platform: Platform) -> &'static ShaderCatalog {
                 choices
                     .iter()
                     .copied()
-                    .filter(|s| *s != Shader::DarkGrittyRetro)
+                    .filter(|s| s.supports_gba_video())
                     .collect()
             };
             ShaderCatalog {

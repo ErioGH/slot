@@ -1,6 +1,37 @@
 use slot_store::{shader_catalog, Platform, Shader, ShaderCatalog};
 
 #[test]
+fn generated_shader_identities_preserve_saved_names_and_enum_order() {
+    for (index, (shader, name)) in [
+        (Shader::Off, "off"),
+        (Shader::Lcd3x, "lcd3x"),
+        (Shader::Grid, "grid"),
+        (Shader::Dot, "dot"),
+        (Shader::Simpletex, "simpletex"),
+        (Shader::Shimmerless, "shimmerless"),
+        (Shader::DarkGrittyRetro, "dark-gritty-retro"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(shader as usize, index);
+        assert_eq!(shader.name(), name);
+        assert_eq!(Shader::parse(name), Some(shader));
+    }
+    for name in [
+        "",
+        "Off",
+        "LCD",
+        "lcd-grid",
+        "dark_gritty_retro",
+        " grid",
+        "grid ",
+    ] {
+        assert_eq!(Shader::parse(name), None, "{name:?}");
+    }
+}
+
+#[test]
 fn bundled_catalogs_preserve_the_existing_order() {
     assert_eq!(
         shader_catalog(Platform::Gba).available(),

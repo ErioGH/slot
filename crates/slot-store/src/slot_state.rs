@@ -556,44 +556,9 @@ impl SlotState {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Shader {
-    Off,
-    Lcd3x,
-    Grid,
-    Dot,
-    Simpletex,
-    Shimmerless,
-    DarkGrittyRetro,
-}
+include!(concat!(env!("OUT_DIR"), "/shader.rs"));
 
 impl Shader {
-    pub fn name(self) -> &'static str {
-        match self {
-            Shader::Off => "off",
-            Shader::Lcd3x => "lcd3x",
-            Shader::Grid => "grid",
-            Shader::Dot => "dot",
-            Shader::Simpletex => "simpletex",
-            Shader::Shimmerless => "shimmerless",
-            Shader::DarkGrittyRetro => "dark-gritty-retro",
-        }
-    }
-
-    pub fn parse(name: &str) -> Option<Shader> {
-        [
-            Shader::Off,
-            Shader::Lcd3x,
-            Shader::Grid,
-            Shader::Dot,
-            Shader::Simpletex,
-            Shader::Shimmerless,
-            Shader::DarkGrittyRetro,
-        ]
-        .into_iter()
-        .find(|s| s.name() == name)
-    }
-
     pub fn step(self, choices: &[Shader], right: bool) -> Shader {
         let n = choices.len();
         let at = choices.iter().position(|&s| s == self).unwrap_or(0);

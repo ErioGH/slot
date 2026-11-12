@@ -2037,6 +2037,18 @@ fn shader_menus_cycle_their_catalogs_and_leave_other_systems_alone() {
                         _ => unreachable!(),
                     };
                     *shader = shader.step(choices, right);
+                    let value = [
+                        (Shader::Off, QuickValue::Off),
+                        (Shader::Lcd3x, QuickValue::Lcd3x),
+                        (Shader::Grid, QuickValue::Grid),
+                        (Shader::Dot, QuickValue::Dot),
+                        (Shader::Simpletex, QuickValue::Simpletex),
+                        (Shader::Shimmerless, QuickValue::Shimmerless),
+                        (Shader::DarkGrittyRetro, QuickValue::DarkGrittyRetro),
+                    ]
+                    .into_iter()
+                    .find_map(|(choice, value)| (choice == *shader).then_some(value));
+                    assert_eq!(a.quick_value(row), value);
                     let after = read_slot_state(d.path());
                     assert_eq!(after.shader_gba, expected.shader_gba);
                     assert_eq!(after.shader_gb, expected.shader_gb);
@@ -2074,6 +2086,10 @@ fn gba_video_leaves_the_saved_game_shader_intact_and_does_not_offer_it() {
         a.set_platform(Platform::Gba);
         assert_eq!(a.screen_shader(), Shader::DarkGrittyRetro);
         assert_eq!(a.screen_effect(), slot_gfx::ScreenEffect::DarkGrittyRetro);
+        assert_eq!(
+            a.quick_value(QuickRow::GbaShader),
+            Some(QuickValue::DarkGrittyRetro)
+        );
         a.set_platform(Platform::Gbav);
         for _ in 0..6 {
             press(&mut a, Btn::Right);

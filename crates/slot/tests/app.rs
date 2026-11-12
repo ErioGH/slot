@@ -2406,6 +2406,28 @@ fn the_shader_shortcut_steps_the_seated_carts_shader_both_ways_and_names_it() {
 }
 
 #[test]
+fn the_game_boy_simpletex_shader_keeps_its_effect_menu_value_and_shortcut_toast() {
+    let d = common::tmp_root_with_gb_carts(&["Tetris"]);
+    let (mut s, _motor) = common::session_with_platform(d.path());
+    s.app_mut().apply(Action::Insert);
+    assert_eq!(s.app().screen_shader(), slot_store::Shader::Simpletex);
+    assert_eq!(s.app().screen_effect(), slot_gfx::ScreenEffect::Simpletex);
+    assert_eq!(
+        s.app().quick_value(slot_ui::QuickRow::GbShader),
+        Some(slot_ui::QuickValue::Simpletex)
+    );
+    s.app_mut().apply(Action::ShaderPrev);
+    assert_eq!(s.app().screen_shader(), slot_store::Shader::Grid);
+    s.app_mut().apply(Action::ShaderNext);
+    assert_eq!(s.app().screen_shader(), slot_store::Shader::Simpletex);
+    assert_eq!(s.app().screen_effect(), slot_gfx::ScreenEffect::Simpletex);
+    assert_eq!(s.app().toast(), Some(slot_ui::Toast::ShaderSimpletex));
+    let saved = slot_store::read_slot_state(d.path());
+    assert_eq!(saved.shader_gb, slot_store::Shader::Simpletex);
+    assert_eq!(saved.shader_gba, slot_store::Shader::Grid);
+}
+
+#[test]
 fn the_lcd_shader_draws_lcd3x_on_a_3_by_2_panel_and_the_grid_lcd_elsewhere() {
     let d = common::tmp_root_with_carts(&["Emerald"]);
     let (mut s, _motor) = common::session_with_platform(d.path());

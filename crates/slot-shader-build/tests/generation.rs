@@ -1,10 +1,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use slot_shader_build::{generate_gfx, Registry};
+use slot_shader_build::{generate_app, generate_gfx, generate_store, Registry};
 
 fn shader_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../slot-gfx/shaders")
+}
+
+fn config_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../slot-store/config/shaders")
 }
 
 fn fixture() -> tempfile::TempDir {
@@ -130,11 +134,30 @@ fn output_is_deterministic_and_independent_of_output_directory() {
     let second = tempfile::tempdir().unwrap();
     let inputs = generate_gfx(&shader_dir(), first.path()).unwrap();
     assert_eq!(inputs, generate_gfx(&shader_dir(), second.path()).unwrap());
-    for name in ["screen_effect.rs", "game.frag.glsl"] {
+    let inputs = generate_store(&shader_dir(), &config_dir(), first.path()).unwrap();
+    assert_eq!(
+        inputs,
+        generate_store(&shader_dir(), &config_dir(), second.path()).unwrap()
+    );
+    let inputs = generate_app(&shader_dir(), first.path()).unwrap();
+    assert_eq!(inputs, generate_app(&shader_dir(), second.path()).unwrap());
+    for name in [
+        "screen_effect.rs",
+        "game.frag.glsl",
+        "shader.rs",
+        "shader_app.rs",
+    ] {
         assert_eq!(read(first.path(), name), read(second.path(), name));
     }
     generate_gfx(&shader_dir(), first.path()).unwrap();
-    for name in ["screen_effect.rs", "game.frag.glsl"] {
+    generate_store(&shader_dir(), &config_dir(), first.path()).unwrap();
+    generate_app(&shader_dir(), first.path()).unwrap();
+    for name in [
+        "screen_effect.rs",
+        "game.frag.glsl",
+        "shader.rs",
+        "shader_app.rs",
+    ] {
         assert_eq!(read(first.path(), name), read(second.path(), name));
     }
 }
@@ -156,6 +179,91 @@ fn all_registry_template_and_source_inputs_are_tracked() {
     ]
     .map(|path| shader_dir().join(path));
     assert_eq!(inputs, expected);
+
+    let app_inputs = generate_app(&shader_dir(), out.path()).unwrap();
+    assert_eq!(app_inputs, [&expected[..1], &expected[2..]].concat());
+    let store_inputs = generate_store(&shader_dir(), &config_dir(), out.path()).unwrap();
+    assert_eq!(
+        store_inputs,
+        [&expected[..1], &[config_dir()], &expected[2..]].concat()
+    );
+}
+
+#[test]
+fn storage_generation_uses_registered_saved_names_and_video_eligibility() {
+    let dir = fixture();
+    let config = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    let text = read(dir.path(), "registry.toml")
+        .replace("name = \"grid\"", "name = \"grid-new\"")
+        .replace(
+            "label = \"Grid\"\ngba_video = true",
+            "label = \"Grid\"\ngba_video = false",
+        );
+    fs::write(dir.path().join("registry.toml"), text).unwrap();
+    fs::write(config.path().join("gba.ini"), "available=off,grid-new").unwrap();
+    generate_store(dir.path(), config.path(), out.path()).unwrap();
+    let rust = read(out.path(), "shader.rs");
+    assert!(rust.contains("Shader::Grid => \"grid-new\","));
+    assert!(rust.contains("\"grid-new\" => Some(Shader::Grid),"));
+    assert!(rust.contains("Shader::Grid => false,"));
+    assert!(!rust.contains("\"grid\""));
+}
+
+#[test]
+fn storage_generation_rejects_unknown_system_config_names() {
+    let config = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    fs::write(config.path().join("gba.ini"), "available=off,unknown").unwrap();
+    let error = generate_store(&shader_dir(), config.path(), out.path()).unwrap_err();
+    assert!(error.contains("gba.ini: line 1: unknown shader"), "{error}");
+    assert_eq!(fs::read_dir(out.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn application_generation_covers_effect_menu_and_toast_mappings() {
+    let out = tempfile::tempdir().unwrap();
+    generate_app(&shader_dir(), out.path()).unwrap();
+    let rust = read(out.path(), "shader_app.rs");
+    for (id, effect) in [
+        ("Off", "None"),
+        ("Grid", "Grid"),
+        ("Dot", "Dot"),
+        ("Simpletex", "Simpletex"),
+        ("Shimmerless", "Shimmerless"),
+        ("DarkGrittyRetro", "DarkGrittyRetro"),
+    ] {
+        assert!(rust.contains(&format!("Shader::{id} => ScreenEffect::{effect},")));
+    }
+    for id in [
+        "Off",
+        "Lcd3x",
+        "Grid",
+        "Dot",
+        "Simpletex",
+        "Shimmerless",
+        "DarkGrittyRetro",
+    ] {
+        assert!(rust.contains(&format!("Shader::{id} => QuickValue::{id},")));
+        assert!(rust.contains(&format!("Shader::{id} => Toast::Shader{id},")));
+    }
+    assert!(rust.contains("true => ScreenEffect::Lcd3x,"));
+    assert!(rust.contains("false => ScreenEffect::LcdGrid,"));
+}
+
+#[test]
+fn application_generation_uses_registered_lcd_targets() {
+    let dir = fixture();
+    let out = tempfile::tempdir().unwrap();
+    let text = read(dir.path(), "registry.toml").replace(
+        "panel_3_2 = \"Lcd3x\", other = \"LcdGrid\"",
+        "panel_3_2 = \"LcdGrid\", other = \"Lcd3x\"",
+    );
+    fs::write(dir.path().join("registry.toml"), text).unwrap();
+    generate_app(dir.path(), out.path()).unwrap();
+    let rust = read(out.path(), "shader_app.rs");
+    assert!(rust.contains("true => ScreenEffect::LcdGrid,"));
+    assert!(rust.contains("false => ScreenEffect::Lcd3x,"));
 }
 
 #[test]
@@ -204,6 +312,10 @@ fn invalid_registry_fails_before_writing_outputs() {
     let text = read(dir.path(), "registry.toml").replace("mode = 7", "mode = 6");
     fs::write(dir.path().join("registry.toml"), text).unwrap();
     let error = generate_gfx(dir.path(), out.path()).unwrap_err();
+    assert!(error.contains("duplicate GPU mode 6"), "{error}");
+    let error = generate_store(dir.path(), &config_dir(), out.path()).unwrap_err();
+    assert!(error.contains("duplicate GPU mode 6"), "{error}");
+    let error = generate_app(dir.path(), out.path()).unwrap_err();
     assert!(error.contains("duplicate GPU mode 6"), "{error}");
     assert_eq!(fs::read_dir(out.path()).unwrap().count(), 0);
 }

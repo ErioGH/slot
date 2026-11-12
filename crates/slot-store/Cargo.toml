@@ -17,3 +17,6 @@ libc.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 libc.workspace = true
+
+[build-dependencies]
+slot-shader-build = { path = "../slot-shader-build" }
