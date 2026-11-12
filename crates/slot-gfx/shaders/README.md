@@ -2,16 +2,22 @@
 
 ## Source layout and assembly
 
-`../src/shaders.rs` embeds these GLSL files with `include_str!`. The
-`GAME_FRAG` constant uses `concat!` to join `game.frag.glsl` and the seven files
-under `effects/` into one fragment shader. Each effect file owns its function
-and helpers; `game.frag.glsl` owns shared uniforms, sampling, clipping, mode
-dispatch, and brightness. Off leaves the sampled colour unchanged.
+`registry.toml` registers selectable shaders separately from rendering effects.
+`slot-shader-build`, used only by build scripts, generates graphics, saved
+identities, application mappings, menu values, and toasts into Cargo's `OUT_DIR`.
+Generated Rust retains the existing enums and direct matches; there is no
+runtime registry lookup or discovery.
+
+`../src/shaders.rs` embeds the generated fragment shader with `include_str!`.
+Generation fills the declaration and dispatch markers in `game.frag.glsl`,
+then appends each registered effect source in registry order. Each effect file
+owns its function and helpers; the fragment template owns shared uniforms,
+sampling, clipping, and brightness. Off leaves the sampled colour unchanged.
 
 `GamePass::new` in `../src/pipeline.rs` compiles this source with
 `game.vert.glsl`. Switching effects updates `u_mode` without recompiling.
-`ScreenEffect::mode` in `../src/lcd3x.rs` supplies the numeric mode; preserve
-its correspondence with the dispatch thresholds when editing effects.
+`ScreenEffect::mode` in `../src/lcd3x.rs` supplies the explicit registry mode.
+The generator derives dispatch thresholds from those same mode numbers.
 
 The other files implement sprite and paper drawing, final blitting, panel
 rotation, and frame blending. Keep those programs separate from game effects.
@@ -20,6 +26,67 @@ rotation, and frame blending. Keep those programs separate from game effects.
 and OpenGL ES 2.0. Keep effect sources compatible with both backends and
 preserve precision qualifiers. Sources are embedded at build time; no shader
 files need to be installed beside the executable.
+
+## Adding a shader
+
+An ordinary single-pass effect needs three file changes:
+
+1. Create `effects/soft.glsl`, with a uniquely named entry point and helpers:
+
+   ```glsl
+   void effect_soft(inout vec3 c, vec2 uv, vec2 f) {
+       c *= 0.95;
+   }
+   ```
+
+2. Register its implementation and selectable identity in `registry.toml`:
+
+   ```toml
+   [[effects]]
+   id = "Soft"
+   mode = 8
+   source = "effects/soft.glsl"
+   entry = "effect_soft"
+
+   [[shaders]]
+   id = "Soft"
+   name = "soft"
+   label = "Soft"
+   gba_video = true
+   mapping = { kind = "fixed", effect = "Soft" }
+   ```
+
+3. Add `soft` at the intended cycling position in the relevant system INI's
+   `available` list. Include it in `available_3_2` too if that system's override
+   should offer it. Enabling more systems requires editing their INIs as well.
+
+Keep existing IDs, saved names, and modes stable. IDs become Rust variants;
+saved names are lowercase identifiers with optional hyphens. Choose a unique
+nonzero mode that fits in a `u8`. Append new effects to preserve the existing
+source assembly order, and append selections to preserve existing UI order.
+Use names that do not collide with non-shader variants in the UI templates.
+Labels supply both menu text and the `Shader: ...` toast text; check long labels
+on the narrowest supported panel. Off shares the ordinary menu's Off value.
+
+LCD demonstrates a panel-dependent mapping: one selection chooses between two
+rendering implementations. Effects requiring new textures, uniforms, geometry,
+or passes still need rendering changes; registration does not provide those
+resources. Grid's special source geometry remains in `GamePass`.
+
+Do not edit generated files. Non-shader UI definitions remain in
+`../../slot-ui/templates/{quick_values,toasts}.rs.in`. Cargo tracks the registry,
+GLSL sources, fragment/UI templates, and system catalog directory for rebuilds.
+
+Build-time diagnostics reject duplicate IDs, names, modes, sources, and entry
+points; invalid or unused effect mappings; missing/unreadable GLSL sources;
+invalid Off/LCD registrations; unknown INI names; and missing/duplicate template
+markers. File reads, catalog errors, and template errors identify the input
+path. GLSL syntax and entry-point signatures are checked when the graphics
+program compiles, so run the GPU tests too.
+
+The three-file workflow covers registration. Add effect-specific reference
+tests and attribution when appropriate; update compatibility assertions if the
+new choice deliberately changes list sizes or the order of later UI values.
 
 ## System availability
 
@@ -40,7 +107,8 @@ entries are rejected. Blank lines and full-line `#` or `;` comments are accepted
 `slot-store/src/shaders.rs` embeds and validates catalogs once per process.
 Changes require rebuilding. These files are repository configuration, not
 SD-card overrides or custom shader presets. GBA Video derives its catalog from
-GBA with Dark Gritty Retro excluded. GB and GBC have separate catalogs and
+GBA using each selection's `gba_video` flag (currently excluding Dark Gritty
+Retro). GB and GBC have separate catalogs and
 saved selections. NDS offers only Off.
 
 Defaults remain in `SlotState::default`. GBA starts with Grid; GB and GBC
@@ -72,6 +140,7 @@ for independent GPU comparisons. Attribution and GPL notices are preserved.
 Run from the repository root:
 
 ```sh
+cargo test --locked -p slot-shader-build
 task check
 cargo test -p slot-gfx --test pipeline
 cargo test -p slot --test render_picture_modes --test render_layout_golden
@@ -82,7 +151,9 @@ task build:device
 Rendering tests require working OpenGL access. Review unexpected image
 changes before updating any golden fixtures. Desktop tests do not verify
 handheld OpenGL ES rendering: also check each available effect, switching,
-saved settings after restart, and panel-specific behavior on hardware.
+saved settings after restart, panel-specific behavior, and frame pacing on
+hardware. Adding an expensive effect can increase GPU work even though
+registration itself has no runtime overhead.
 
 Shader origins, authors, licenses, and port modifications are recorded in
 [`licenses/shaders.txt`](../../../licenses/shaders.txt). Preserve this attribution

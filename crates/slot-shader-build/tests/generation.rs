@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use slot_shader_build::{generate_app, generate_gfx, generate_store, generate_ui, Registry};
 
@@ -32,6 +33,134 @@ fn fixture() -> tempfile::TempDir {
 
 fn read(dir: &Path, name: &str) -> String {
     fs::read_to_string(dir.join(name)).unwrap()
+}
+
+#[test]
+fn a_shader_integrates_with_only_a_source_registry_and_system_config_edit() {
+    let dir = fixture();
+    let config = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    for name in ["gba.ini", "gb.ini", "gbc.ini"] {
+        fs::copy(config_dir().join(name), config.path().join(name)).unwrap();
+    }
+
+    // These are the only registration inputs changed in the isolated fixture.
+    let source = "void effect_synthetic(inout vec3 c, vec2 uv, vec2 f) { c *= 0.5; }\n";
+    fs::write(dir.path().join("effects/synthetic.glsl"), source).unwrap();
+    let mut registry = read(dir.path(), "registry.toml");
+    registry.push_str(
+        r#"
+[[effects]]
+id = "Synthetic"
+mode = 8
+source = "effects/synthetic.glsl"
+entry = "effect_synthetic"
+
+[[shaders]]
+id = "Synthetic"
+name = "synthetic"
+label = "Synthetic"
+gba_video = false
+mapping = { kind = "fixed", effect = "Synthetic" }
+"#,
+    );
+    fs::write(dir.path().join("registry.toml"), registry).unwrap();
+    let catalog =
+        read(config.path(), "gba.ini").replace("dark-gritty-retro", "dark-gritty-retro,synthetic");
+    fs::write(config.path().join("gba.ini"), catalog).unwrap();
+
+    generate_gfx(dir.path(), out.path()).unwrap();
+    generate_store(dir.path(), config.path(), out.path()).unwrap();
+    generate_app(dir.path(), out.path()).unwrap();
+    generate_ui(dir.path(), &template_dir(), out.path()).unwrap();
+    let frag = read(out.path(), "game.frag.glsl");
+    assert!(frag.contains("void effect_synthetic(inout vec3 c, vec2 uv, vec2 f);"));
+    assert!(frag.contains("} else if (u_mode > 7.5) {\n        effect_synthetic(c, uv, f);"));
+    assert!(frag.ends_with(source));
+
+    // Compile all generated Rust against minimal stand-ins for the unrelated
+    // application/UI types. No manually maintained shader registration is added.
+    let harness = r#"
+mod slot_gfx {
+    include!(concat!(env!("OUT_DIR"), "/screen_effect.rs"));
+}
+include!(concat!(env!("OUT_DIR"), "/shader.rs"));
+include!(concat!(env!("OUT_DIR"), "/quick_values.rs"));
+include!(concat!(env!("OUT_DIR"), "/toasts.rs"));
+include!(concat!(env!("OUT_DIR"), "/shader_app.rs"));
+
+struct App { shader: Shader, panel: (u32, u32) }
+impl App { fn screen_shader(&self) -> Shader { self.shader } }
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct GbColors;
+impl GbColors {
+    fn all() -> impl Iterator<Item = Self> { [Self].into_iter() }
+    fn index(self) -> usize { 0 }
+    fn label(self) -> &'static str { "Auto" }
+}
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct QuickRow;
+impl QuickRow {
+    const ALL: [Self; 1] = [Self];
+    fn binds(self) -> bool { true }
+    fn game_button(self) -> Option<()> { None }
+    fn label(self) -> &'static str { "Stub" }
+}
+pub enum Icon { Alert, Camera }
+mod hud { pub type Millis = u64; pub const HUD_MS: Millis = 1500; }
+const REPAIR_HOLD_MS: hud::Millis = 6000;
+const WARNING_HOLD_MS: hud::Millis = 4000;
+const TINT_HOLD_MS: hud::Millis = 1000;
+fn bound_rows() -> impl Iterator<Item = QuickRow> { QuickRow::ALL.into_iter() }
+
+#[test]
+fn synthetic_shader_is_registered_everywhere() {
+    assert_eq!(Shader::Synthetic.name(), "synthetic");
+    assert_eq!(Shader::parse("synthetic"), Some(Shader::Synthetic));
+    assert!(!Shader::Synthetic.supports_gba_video());
+    let app = App { shader: Shader::Synthetic, panel: (640, 480) };
+    assert_eq!(app.screen_effect(), slot_gfx::ScreenEffect::Synthetic);
+    assert_eq!(slot_gfx::ScreenEffect::Synthetic as u8, 8);
+    assert_eq!(shader_value(Shader::Synthetic), QuickValue::Synthetic);
+    assert_eq!(shader_toast(Shader::Synthetic), Toast::ShaderSynthetic);
+    assert_eq!(QuickValue::Synthetic.text(), "Synthetic");
+    assert_eq!(Toast::ShaderSynthetic.text(), "Shader: Synthetic");
+    assert_eq!(QuickValue::ALL.len(), 59);
+    assert_eq!(Toast::FIXED.len(), 34);
+    for (index, value) in QuickValue::ALL.into_iter().enumerate() {
+        assert_eq!(value.index(), index);
+    }
+    for (index, toast) in Toast::all().into_iter().enumerate() {
+        assert_eq!(toast.index(), index);
+    }
+    assert_eq!(QuickValue::ALL.into_iter().filter(|v| *v == QuickValue::Off).count(), 1);
+}
+"#;
+    let path = out.path().join("integration.rs");
+    fs::write(&path, harness).unwrap();
+    let executable = out
+        .path()
+        .join(format!("integration{}", std::env::consts::EXE_SUFFIX));
+    let result = Command::new(std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into()))
+        .args(["--edition=2021", "--test"])
+        .arg(&path)
+        .arg("-o")
+        .arg(&executable)
+        .env("OUT_DIR", out.path())
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let result = Command::new(executable).output().unwrap();
+    assert!(
+        result.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
 }
 
 #[test]
