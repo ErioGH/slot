@@ -1992,3 +1992,37 @@ fn battery_display_steps_through_its_three_choices_and_is_saved() {
         Some(QuickValue::Percentage)
     );
 }
+
+#[test]
+fn shader_menus_cycle_their_catalogs_and_leave_other_systems_alone() {
+    for panel in [(720, 480), (640, 480)] {
+        for (platform, row) in [
+            (Platform::Gba, QuickRow::GbaShader),
+            (Platform::Gb, QuickRow::GbShader),
+            (Platform::Gbc, QuickRow::GbcShader),
+        ] {
+            let (d, mut a, _) = on_carousel();
+            a.set_panel(panel);
+            open_at(&mut a, row);
+            let choices = slot_store::shader_catalog(platform).choices(panel);
+            for right in [true, false] {
+                for _ in 0..choices.len() {
+                    let before = read_slot_state(d.path());
+                    press(&mut a, if right { Btn::Right } else { Btn::Left });
+                    let mut expected = before.clone();
+                    let shader = match platform {
+                        Platform::Gba => &mut expected.shader_gba,
+                        Platform::Gb => &mut expected.shader_gb,
+                        Platform::Gbc => &mut expected.shader_gbc,
+                        _ => unreachable!(),
+                    };
+                    *shader = shader.step(choices, right);
+                    let after = read_slot_state(d.path());
+                    assert_eq!(after.shader_gba, expected.shader_gba);
+                    assert_eq!(after.shader_gb, expected.shader_gb);
+                    assert_eq!(after.shader_gbc, expected.shader_gbc);
+                }
+            }
+        }
+    }
+}

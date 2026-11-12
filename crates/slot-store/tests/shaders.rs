@@ -2,9 +2,36 @@ use slot_store::{shader_catalog, Platform, Shader, ShaderCatalog};
 
 #[test]
 fn bundled_catalogs_preserve_the_existing_order() {
-    assert_eq!(shader_catalog(Platform::Gba).available(), Shader::GBA);
-    assert_eq!(shader_catalog(Platform::Gb).available(), Shader::GB);
-    assert_eq!(shader_catalog(Platform::Gbc).available(), Shader::GB);
+    assert_eq!(
+        shader_catalog(Platform::Gba).available(),
+        [
+            Shader::Off,
+            Shader::Lcd3x,
+            Shader::Grid,
+            Shader::Dot,
+            Shader::Shimmerless
+        ]
+    );
+    assert_eq!(
+        shader_catalog(Platform::Gb).available(),
+        [
+            Shader::Off,
+            Shader::Lcd3x,
+            Shader::Grid,
+            Shader::Simpletex,
+            Shader::Shimmerless
+        ]
+    );
+    assert_eq!(
+        shader_catalog(Platform::Gbc).available(),
+        [
+            Shader::Off,
+            Shader::Lcd3x,
+            Shader::Grid,
+            Shader::Simpletex,
+            Shader::Shimmerless
+        ]
+    );
 }
 
 #[test]
@@ -12,13 +39,40 @@ fn only_gba_has_a_three_by_two_override() {
     for panel in [(720, 480), (1440, 960)] {
         assert_eq!(
             shader_catalog(Platform::Gba).choices(panel),
-            Shader::GBA_3_2
+            [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot]
         );
-        assert_eq!(shader_catalog(Platform::Gb).choices(panel), Shader::GB);
-        assert_eq!(shader_catalog(Platform::Gbc).choices(panel), Shader::GB);
+        assert_eq!(
+            shader_catalog(Platform::Gb).choices(panel),
+            [
+                Shader::Off,
+                Shader::Lcd3x,
+                Shader::Grid,
+                Shader::Simpletex,
+                Shader::Shimmerless
+            ]
+        );
+        assert_eq!(
+            shader_catalog(Platform::Gbc).choices(panel),
+            [
+                Shader::Off,
+                Shader::Lcd3x,
+                Shader::Grid,
+                Shader::Simpletex,
+                Shader::Shimmerless
+            ]
+        );
     }
     for panel in [(640, 480), (720, 720), (0, 0), (0, 480)] {
-        assert_eq!(shader_catalog(Platform::Gba).choices(panel), Shader::GBA);
+        assert_eq!(
+            shader_catalog(Platform::Gba).choices(panel),
+            [
+                Shader::Off,
+                Shader::Lcd3x,
+                Shader::Grid,
+                Shader::Dot,
+                Shader::Shimmerless
+            ]
+        );
     }
 }
 
@@ -125,7 +179,13 @@ fn malformed_unknown_and_duplicate_keys_are_rejected() {
 fn aspect_ratio_comparison_handles_large_dimensions() {
     assert_eq!(
         shader_catalog(Platform::Gba).choices((u32::MAX, u32::MAX)),
-        Shader::GBA
+        [
+            Shader::Off,
+            Shader::Lcd3x,
+            Shader::Grid,
+            Shader::Dot,
+            Shader::Shimmerless
+        ]
     );
 }
 
