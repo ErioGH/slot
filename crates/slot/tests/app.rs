@@ -2356,8 +2356,18 @@ fn the_shader_shortcut_steps_the_seated_carts_shader_both_ways_and_names_it() {
         ),
         (
             slot_input::Action::ShaderNext,
+            Shader::DarkGrittyRetro,
+            slot_ui::Toast::ShaderDarkGrittyRetro,
+        ),
+        (
+            slot_input::Action::ShaderNext,
             Shader::Off,
             slot_ui::Toast::ShaderOff,
+        ),
+        (
+            slot_input::Action::ShaderPrev,
+            Shader::DarkGrittyRetro,
+            slot_ui::Toast::ShaderDarkGrittyRetro,
         ),
         (
             slot_input::Action::ShaderPrev,

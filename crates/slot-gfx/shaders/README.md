@@ -3,7 +3,7 @@
 ## Source layout and assembly
 
 `../src/shaders.rs` embeds these GLSL files with `include_str!`. The
-`GAME_FRAG` constant uses `concat!` to join `game.frag.glsl` and the six files
+`GAME_FRAG` constant uses `concat!` to join `game.frag.glsl` and the seven files
 under `effects/` into one fragment shader. Each effect file owns its function
 and helpers; `game.frag.glsl` owns shared uniforms, sampling, clipping, mode
 dispatch, and brightness. Off leaves the sampled colour unchanged.
@@ -27,8 +27,8 @@ The ordered availability lists live in
 `../../slot-store/config/shaders/gba.ini`, `gb.ini`, and `gbc.ini`:
 
 ```ini
-available=off,lcd3x,grid,dot,shimmerless
-available_3_2=off,lcd3x,grid,dot
+available=off,lcd3x,grid,dot,shimmerless,dark-gritty-retro
+available_3_2=off,lcd3x,grid,dot,dark-gritty-retro
 ```
 
 `available` controls supported saved selections and normal cycling order.
@@ -39,13 +39,33 @@ entries are rejected. Blank lines and full-line `#` or `;` comments are accepted
 
 `slot-store/src/shaders.rs` embeds and validates catalogs once per process.
 Changes require rebuilding. These files are repository configuration, not
-SD-card overrides or custom shader presets. GBA Video shares GBA's catalog;
-GB and GBC have separate catalogs and saved selections. NDS offers only Off.
+SD-card overrides or custom shader presets. GBA Video derives its catalog from
+GBA with Dark Gritty Retro excluded. GB and GBC have separate catalogs and
+saved selections. NDS offers only Off.
 
 Defaults remain in `SlotState::default`. GBA starts with Grid; GB and GBC
 start with Simpletex. LCD resolves to LCD3x on 3:2 panels and LCD Grid on
 other panels. A saved GBA Shimmerless selection remains saved when a 3:2
 panel displays it as Off, so switching back restores it.
+
+## Dark Gritty Retro
+
+`effects/dark_gritty_retro.glsl` ports the supplied Hyllian/DOLLS Retro shader
+as a fixed built-in effect. Its preset uses one nearest-sampled pass at the
+picture's output size, without extra textures or runtime preset loading.
+The port preserves selective color grading, vignette, pixel edges, and the
+original unequal input/output gamma exponents. Helpers and constants are
+namespaced; source/output pixel ratios use the sampled UV span and actual
+framebuffer geometry, including cropping.
+
+The menu calls it Dark Gritty Retro; saved settings use `dark-gritty-retro`.
+It is available for GBA games on both panel shapes. GBA Video displays Off
+for this shared saved selection without erasing it; returning to GBA restores
+it. Existing brightness, color correction, frame blending, and final display
+adjustments still compose with this effect. Defaults remain unchanged.
+
+The original source is retained in `../tests/fixtures/dark-gritty-retro.glsl`
+for independent GPU comparisons. Attribution and GPL notices are preserved.
 
 ## Verification and attribution
 
