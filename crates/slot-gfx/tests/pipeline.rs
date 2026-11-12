@@ -9,8 +9,14 @@ static GL: Mutex<()> = Mutex::new(());
 
 fn compositor() -> Option<(MutexGuard<'static, ()>, HeadlessSurface, Compositor)> {
     let guard = GL.lock().unwrap_or_else(PoisonError::into_inner);
-    let surface = HeadlessSurface::new().ok()?;
-    let compositor = Compositor::new(&surface).ok()?;
+    let surface = match HeadlessSurface::new() {
+        Ok(surface) => surface,
+        Err(error) => {
+            eprintln!("skipping GPU check: {error}");
+            return None;
+        }
+    };
+    let compositor = Compositor::new(&surface).expect("generated game shader must compile");
     Some((guard, surface, compositor))
 }
 
@@ -1889,7 +1895,7 @@ fn dark_gritty_retro_matches_the_supplied_shader_at_integer_and_fractional_scale
 }
 
 #[test]
-fn adding_dark_gritty_retro_preserves_existing_effect_modes() {
+fn generated_registration_preserves_existing_effect_modes() {
     for (mode, effect) in [
         ScreenEffect::None,
         ScreenEffect::Lcd3x,

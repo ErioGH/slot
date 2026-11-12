@@ -1,5 +1,5 @@
 # Registration only: system availability and cycling order belong in
-# slot-store/config/shaders/*.ini. No runtime consumers use this registry yet.
+# slot-store/config/shaders/*.ini. Graphics registration is generated at build time.
 # Effect order preserves the existing GLSL source assembly order.
 
 [[effects]]

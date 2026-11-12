@@ -20,16 +20,7 @@ pub const RECT_VERT: &str = include_str!("../shaders/game.vert.glsl");
 
 pub const SPRITE_VERT: &str = include_str!("../shaders/sprite.vert.glsl");
 
-pub const GAME_FRAG: &str = concat!(
-    include_str!("../shaders/game.frag.glsl"),
-    include_str!("../shaders/effects/dark_gritty_retro.glsl"),
-    include_str!("../shaders/effects/lcd_grid.glsl"),
-    include_str!("../shaders/effects/shimmerless.glsl"),
-    include_str!("../shaders/effects/simpletex.glsl"),
-    include_str!("../shaders/effects/dot.glsl"),
-    include_str!("../shaders/effects/grid.glsl"),
-    include_str!("../shaders/effects/lcd3x.glsl"),
-);
+pub const GAME_FRAG: &str = include_str!(concat!(env!("OUT_DIR"), "/game.frag.glsl"));
 
 pub const SPRITE_FRAG: &str = include_str!("../shaders/sprite.frag.glsl");
 

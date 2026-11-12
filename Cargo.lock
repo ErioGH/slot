@@ -2311,6 +2311,7 @@ dependencies = [
  "glutin-winit",
  "libloading",
  "raw-window-handle",
+ "slot-shader-build",
  "winit",
 ]
 
