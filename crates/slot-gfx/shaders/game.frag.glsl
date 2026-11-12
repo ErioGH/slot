@@ -22,12 +22,15 @@ void effect_simpletex(inout vec3 c, vec2 uv, vec2 f);
 void effect_dot(inout vec3 c, vec2 uv, vec2 f);
 void effect_grid(inout vec3 c, vec2 uv, vec2 f);
 void effect_lcd3x(inout vec3 c, vec2 uv, vec2 f);
+void effect_dark_gritty_retro(inout vec3 c, vec2 uv, vec2 f);
 void main() {
     vec2 uv = u_uv.xy + v_uv * u_uv.zw;
     vec2 f = fract(uv * u_src);
     vec3 c = texture2D(u_game, uv).rgb;
     bool inside = all(greaterThanEqual(uv, u_pic.xy)) && all(lessThan(uv, u_pic.zw));
     if (!inside) {
+    } else if (u_mode > 6.5) {
+        effect_dark_gritty_retro(c, uv, f);
     } else if (u_mode > 5.5) {
         effect_lcd_grid(c, uv, f);
     } else if (u_mode > 4.5) {

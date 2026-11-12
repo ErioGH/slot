@@ -18,6 +18,7 @@ pub enum ScreenEffect {
     Simpletex,
     Shimmerless,
     LcdGrid,
+    DarkGrittyRetro,
 }
 
 impl ScreenEffect {

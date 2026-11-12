@@ -14,4 +14,10 @@ GNU General Public License version 2 or later.
 The paper texture (assets/paper.png, a 1024x1024 crop of textured_paper.png) is from the same shader.
 Changes: the grid bias is 1.0, so black pixels carry no grid.
 
+Dark Gritty Retro, supplied in examples/dark-gritty-retro.glsl.
+Hyllian - Retro Shader - 2013; re-implementation of the original by Hyllian and DOLLS.
+GNU General Public License version 2 or later.
+Changes: namespaced helpers and constants; adapted shared sampling and geometry
+uniforms to Slot. Preset uses one pass, nearest sampling and viewport output.
+
 slot itself is GNU General Public License version 3 or later, which these licenses permit.
