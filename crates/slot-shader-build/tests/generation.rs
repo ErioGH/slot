@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use slot_shader_build::{generate_app, generate_gfx, generate_store, Registry};
+use slot_shader_build::{generate_app, generate_gfx, generate_store, generate_ui, Registry};
 
 fn shader_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../slot-gfx/shaders")
@@ -9,6 +9,10 @@ fn shader_dir() -> PathBuf {
 
 fn config_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../slot-store/config/shaders")
+}
+
+fn template_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../slot-ui/templates")
 }
 
 fn fixture() -> tempfile::TempDir {
@@ -141,22 +145,32 @@ fn output_is_deterministic_and_independent_of_output_directory() {
     );
     let inputs = generate_app(&shader_dir(), first.path()).unwrap();
     assert_eq!(inputs, generate_app(&shader_dir(), second.path()).unwrap());
+    let inputs = generate_ui(&shader_dir(), &template_dir(), first.path()).unwrap();
+    assert_eq!(
+        inputs,
+        generate_ui(&shader_dir(), &template_dir(), second.path()).unwrap()
+    );
     for name in [
         "screen_effect.rs",
         "game.frag.glsl",
         "shader.rs",
         "shader_app.rs",
+        "quick_values.rs",
+        "toasts.rs",
     ] {
         assert_eq!(read(first.path(), name), read(second.path(), name));
     }
     generate_gfx(&shader_dir(), first.path()).unwrap();
     generate_store(&shader_dir(), &config_dir(), first.path()).unwrap();
     generate_app(&shader_dir(), first.path()).unwrap();
+    generate_ui(&shader_dir(), &template_dir(), first.path()).unwrap();
     for name in [
         "screen_effect.rs",
         "game.frag.glsl",
         "shader.rs",
         "shader_app.rs",
+        "quick_values.rs",
+        "toasts.rs",
     ] {
         assert_eq!(read(first.path(), name), read(second.path(), name));
     }
@@ -187,6 +201,119 @@ fn all_registry_template_and_source_inputs_are_tracked() {
         store_inputs,
         [&expected[..1], &[config_dir()], &expected[2..]].concat()
     );
+    let ui_inputs = generate_ui(&shader_dir(), &template_dir(), out.path()).unwrap();
+    let templates = [
+        template_dir().join("quick_values.rs.in"),
+        template_dir().join("toasts.rs.in"),
+    ];
+    assert_eq!(
+        ui_inputs,
+        [&expected[..1], &templates, &expected[2..]].concat()
+    );
+}
+
+#[test]
+fn ui_generation_registers_each_shader_and_shares_the_off_menu_value() {
+    let out = tempfile::tempdir().unwrap();
+    generate_ui(&shader_dir(), &template_dir(), out.path()).unwrap();
+    let quick = read(out.path(), "quick_values.rs");
+    let toast = read(out.path(), "toasts.rs");
+    for (id, label) in [
+        ("Off", "Off"),
+        ("Lcd3x", "LCD"),
+        ("Grid", "Grid"),
+        ("Dot", "Dot"),
+        ("Simpletex", "Simpletex"),
+        ("Shimmerless", "Shimmerless"),
+        ("DarkGrittyRetro", "Dark Gritty Retro"),
+    ] {
+        assert_eq!(quick.matches(&format!("\n    {id},")).count(), 1);
+        assert_eq!(
+            quick
+                .matches(&format!("\n        QuickValue::{id},"))
+                .count(),
+            1
+        );
+        assert!(quick.contains(&format!("QuickValue::{id} => {label:?},")));
+        assert_eq!(toast.matches(&format!("\n    Shader{id},")).count(), 1);
+        assert_eq!(
+            toast
+                .matches(&format!("\n        Toast::Shader{id},"))
+                .count(),
+            1
+        );
+        assert!(toast.contains(&format!(
+            "Toast::Shader{id} => {:?},",
+            format!("Shader: {label}")
+        )));
+    }
+    assert!(quick.contains("pub const ALL: [QuickValue; 52 + 6]"));
+    assert!(toast.contains("const FIXED: [Toast; 26 + 7]"));
+    assert!(quick.contains("self as usize"));
+    assert!(!quick.contains('@'));
+    assert!(!toast.contains('@'));
+}
+
+#[test]
+fn ui_generation_uses_registry_labels_and_escapes_rust_strings() {
+    let dir = fixture();
+    let out = tempfile::tempdir().unwrap();
+    let text = read(dir.path(), "registry.toml").replace(
+        "label = \"Dark Gritty Retro\"",
+        r#"label = 'Dark "Gritty" \ Retro'"#,
+    );
+    fs::write(dir.path().join("registry.toml"), text).unwrap();
+    generate_ui(dir.path(), &template_dir(), out.path()).unwrap();
+    let label = "Dark \"Gritty\" \\ Retro";
+    assert!(read(out.path(), "quick_values.rs")
+        .contains(&format!("QuickValue::DarkGrittyRetro => {label:?},")));
+    assert!(read(out.path(), "toasts.rs").contains(&format!(
+        "Toast::ShaderDarkGrittyRetro => {:?},",
+        format!("Shader: {label}")
+    )));
+}
+
+#[test]
+fn malformed_ui_templates_report_missing_or_duplicate_markers() {
+    let templates = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap();
+    for (name, markers) in [
+        (
+            "quick_values.rs.in",
+            [
+                "    // @shader_variants@",
+                "        // @shader_values@",
+                "            // @shader_labels@",
+                "@shader_value_count@",
+            ],
+        ),
+        (
+            "toasts.rs.in",
+            [
+                "    // @shader_variants@",
+                "        // @shader_toasts@",
+                "            // @shader_labels@",
+                "@shader_toast_count@",
+            ],
+        ),
+    ] {
+        for marker in markers {
+            for replacement in [String::new(), format!("{marker}\n{marker}")] {
+                for file in ["quick_values.rs.in", "toasts.rs.in"] {
+                    fs::copy(template_dir().join(file), templates.path().join(file)).unwrap();
+                }
+                let template = read(&template_dir(), name).replace(marker, &replacement);
+                fs::write(templates.path().join(name), template).unwrap();
+                let error = generate_ui(&shader_dir(), templates.path(), out.path()).unwrap_err();
+                assert!(
+                    error.contains(&format!("{name}: expected exactly one")),
+                    "{error}"
+                );
+                assert!(error.contains(marker), "{error}");
+                assert_eq!(fs::read_dir(out.path()).unwrap().count(), 0);
+            }
+        }
+    }
 }
 
 #[test]
@@ -316,6 +443,8 @@ fn invalid_registry_fails_before_writing_outputs() {
     let error = generate_store(dir.path(), &config_dir(), out.path()).unwrap_err();
     assert!(error.contains("duplicate GPU mode 6"), "{error}");
     let error = generate_app(dir.path(), out.path()).unwrap_err();
+    assert!(error.contains("duplicate GPU mode 6"), "{error}");
+    let error = generate_ui(dir.path(), &template_dir(), out.path()).unwrap_err();
     assert!(error.contains("duplicate GPU mode 6"), "{error}");
     assert_eq!(fs::read_dir(out.path()).unwrap().count(), 0);
 }

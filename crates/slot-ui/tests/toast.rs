@@ -5,6 +5,46 @@ use slot_ui::{
 };
 
 #[test]
+fn generated_shader_toasts_keep_their_text_and_draw_the_matching_texture() {
+    let all = Toast::all();
+    let textures: Vec<_> = (0..all.len())
+        .map(|index| TexId::from_raw(index + 1_000))
+        .collect();
+    let mut hud = Hud::new();
+    hud.set_toasts(textures.clone());
+    for (index, (toast, label)) in [
+        (Toast::ShaderOff, "Shader: Off"),
+        (Toast::ShaderLcd3x, "Shader: LCD"),
+        (Toast::ShaderGrid, "Shader: Grid"),
+        (Toast::ShaderDot, "Shader: Dot"),
+        (Toast::ShaderSimpletex, "Shader: Simpletex"),
+        (Toast::ShaderShimmerless, "Shader: Shimmerless"),
+        (Toast::ShaderDarkGrittyRetro, "Shader: Dark Gritty Retro"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(toast.index(), index + 14);
+        assert_eq!(all[toast.index()], toast);
+        assert_eq!(toast.text(), label);
+        hud.toast(toast, 0);
+        let mut out = Vec::new();
+        let canvas = Canvas { w: 640.0, h: 480.0 };
+        hud.draw(canvas, 0, &mut out);
+        let drawn: Vec<_> = out
+            .iter()
+            .filter_map(|draw| match draw {
+                Draw::Tex { tex, .. } => Some(*tex),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(drawn, [textures[toast.index()]], "{toast:?}");
+        let (x, y, w, h) = toast_rect(canvas, toast);
+        assert!(x >= 0.0 && y >= 0.0 && x + w <= canvas.w && y + h <= canvas.h);
+    }
+}
+
+#[test]
 fn saving_and_loading_say_which_one_happened() {
     assert_eq!(Toast::StateSaved.text(), "State Saved");
     assert_eq!(Toast::StateLoaded.text(), "State Loaded");

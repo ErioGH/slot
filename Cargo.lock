@@ -2370,6 +2370,7 @@ dependencies = [
  "slot-gfx",
  "slot-input",
  "slot-power",
+ "slot-shader-build",
  "slot-store",
  "tempfile",
  "usvg",
