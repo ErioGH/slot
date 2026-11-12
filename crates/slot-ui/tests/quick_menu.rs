@@ -277,6 +277,7 @@ fn the_values_read_as_the_menu_prints_them() {
             "Dot",
             "Simpletex",
             "Shimmerless",
+            "Dark Gritty Retro",
             "Dark",
             "Light",
             "Show",

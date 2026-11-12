@@ -28,6 +28,7 @@ pub enum Toast {
     ShaderDot,
     ShaderSimpletex,
     ShaderShimmerless,
+    ShaderDarkGrittyRetro,
     CardUnwritable,
     CardRepair,
     CardRepairCharge,
@@ -45,7 +46,7 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 32] = [
+    const FIXED: [Toast; 33] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::GameReset,
@@ -66,6 +67,7 @@ impl Toast {
         Toast::ShaderDot,
         Toast::ShaderSimpletex,
         Toast::ShaderShimmerless,
+        Toast::ShaderDarkGrittyRetro,
         Toast::CardUnwritable,
         Toast::CardRepair,
         Toast::CardRepairCharge,
@@ -165,6 +167,7 @@ impl Toast {
             Toast::ShaderDot => "Shader: Dot",
             Toast::ShaderSimpletex => "Shader: Simpletex",
             Toast::ShaderShimmerless => "Shader: Shimmerless",
+            Toast::ShaderDarkGrittyRetro => "Shader: Dark Gritty Retro",
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::CardRepair | Toast::CardRepairCharge => "Can't write to SD card",
             Toast::CardRepaired => "SD card repaired",
@@ -352,6 +355,15 @@ fn beside(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dark_gritty_retro_is_available_for_prerendering() {
+        assert!(Toast::all().contains(&Toast::ShaderDarkGrittyRetro));
+        assert_eq!(
+            Toast::ShaderDarkGrittyRetro.text(),
+            "Shader: Dark Gritty Retro"
+        );
+    }
 
     fn ink_width(toast: Toast) -> u32 {
         let font = text::label_font().expect("label font");

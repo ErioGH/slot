@@ -947,6 +947,7 @@ pub enum QuickValue {
     Dot,
     Simpletex,
     Shimmerless,
+    DarkGrittyRetro,
     Dark,
     Light,
     Show,
@@ -995,7 +996,7 @@ pub enum QuickValue {
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 57] = [
+    pub const ALL: [QuickValue; 58] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1008,6 +1009,7 @@ impl QuickValue {
         QuickValue::Dot,
         QuickValue::Simpletex,
         QuickValue::Shimmerless,
+        QuickValue::DarkGrittyRetro,
         QuickValue::Dark,
         QuickValue::Light,
         QuickValue::Show,
@@ -1101,6 +1103,7 @@ impl QuickValue {
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
             QuickValue::Shimmerless => "Shimmerless",
+            QuickValue::DarkGrittyRetro => "Dark Gritty Retro",
             QuickValue::Dark => "Dark",
             QuickValue::Light => "Light",
             QuickValue::Show => "Show",
@@ -1968,4 +1971,25 @@ fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
         tex,
         alpha: 1.0,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dark_gritty_retro_fits_beside_the_shader_label_on_a_narrow_panel() {
+        assert!(QuickValue::ALL.contains(&QuickValue::DarkGrittyRetro));
+        assert_eq!(QuickValue::DarkGrittyRetro.text(), "Dark Gritty Retro");
+        for lit in [false, true] {
+            let label = quick_label_face(QuickRow::GbaShader, lit);
+            let value = quick_value_face(QuickValue::DarkGrittyRetro.text(), lit);
+            assert!(!value.rgba.is_empty());
+            let pad = MENU_PAD as f32;
+            let label_end = QUICK_LABEL_X + label.w as f32 - 2.0 * pad;
+            let room = 640.0 - QUICK_EDGE - label_end - QUICK_VALUE_GAP;
+            let ink_width = value.w as f32 - 2.0 * pad;
+            assert!(ink_width * VALUE_MIN_SCALE <= room);
+        }
+    }
 }
