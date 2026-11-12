@@ -7,11 +7,11 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BatteryDisplay, BezelPick,
-    Blending, Cart, Collection, Core, GbColors, KidMode, Platform, Recent, Scale, Shader,
-    ShelfMode, ShotDir, ShotEntry, SlotState, StateEntry, StateRing, Stretch, WallpaperPick,
-    WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, DIM_MAX, FF_SPEEDS, RING_MAX,
-    SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
+    format_stamp, parse_stamp, read_slot_state, scan, shader_catalog, write_slot_state,
+    BatteryDisplay, BezelPick, Blending, Cart, Collection, Core, GbColors, KidMode, Platform,
+    Recent, Scale, Shader, ShelfMode, ShotDir, ShotEntry, SlotState, StateEntry, StateRing,
+    Stretch, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, DIM_MAX,
+    FF_SPEEDS, RING_MAX, SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from_shaped, draw_empty_slot, draw_footer, draw_ground, draw_sticker, ease, footer_ink,
@@ -4737,12 +4737,7 @@ impl App {
     }
 
     fn gba_shaders(&self) -> &'static [Shader] {
-        let (w, h) = self.panel;
-        if w > 0 && w * 2 == h * 3 {
-            &Shader::GBA_3_2
-        } else {
-            &Shader::GBA
-        }
+        shader_catalog(Platform::Gba).choices(self.panel)
     }
 
     fn gba_shader(&self) -> Shader {
@@ -5886,14 +5881,18 @@ impl App {
                 s.shader_gba = to;
             }
             QuickRow::GbShader => {
-                let to = s.shader_gb.step(&Shader::GB, right);
+                let to = s
+                    .shader_gb
+                    .step(shader_catalog(Platform::Gb).choices(self.panel), right);
                 if to == s.shader_gb {
                     return;
                 }
                 s.shader_gb = to;
             }
             QuickRow::GbcShader => {
-                let to = s.shader_gbc.step(&Shader::GB, right);
+                let to = s
+                    .shader_gbc
+                    .step(shader_catalog(Platform::Gbc).choices(self.panel), right);
                 if to == s.shader_gbc {
                     return;
                 }
@@ -6051,8 +6050,14 @@ impl App {
             Platform::Gba | Platform::Gbav => (&mut self.state.shader_gba, gba_shaders),
             #[cfg(feature = "nds")]
             Platform::Nds => (&mut self.state.shader_gba, gba_shaders),
-            Platform::Gb => (&mut self.state.shader_gb, &Shader::GB[..]),
-            Platform::Gbc => (&mut self.state.shader_gbc, &Shader::GB[..]),
+            Platform::Gb => (
+                &mut self.state.shader_gb,
+                shader_catalog(Platform::Gb).choices(self.panel),
+            ),
+            Platform::Gbc => (
+                &mut self.state.shader_gbc,
+                shader_catalog(Platform::Gbc).choices(self.panel),
+            ),
         };
         *shader = shader.step(choices, right);
         let said = match *shader {

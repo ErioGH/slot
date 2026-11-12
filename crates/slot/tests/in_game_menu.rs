@@ -859,3 +859,23 @@ fn a_refused_double_tap_in_the_menu_with_no_states_stays_on_a_shown_row() {
     assert!(matches!(a.phase(), Phase::Playing { .. }));
     cursor_on_a_shown_row(&a);
 }
+
+#[test]
+fn shader_shortcuts_follow_the_gba_panel_catalog_and_wrap_both_ways() {
+    for panel in [(720, 480), (640, 480)] {
+        let (d, mut a) = playing();
+        a.set_panel(panel);
+        let choices = slot_store::shader_catalog(Platform::Gba).choices(panel);
+        for (action, right) in [(Action::ShaderNext, true), (Action::ShaderPrev, false)] {
+            for _ in 0..choices.len() {
+                let expected = a.screen_shader().step(choices, right);
+                a.apply(action);
+                assert_eq!(a.screen_shader(), expected);
+                let saved = slot_store::read_slot_state(d.path());
+                assert_eq!(saved.shader_gba, expected);
+                assert_eq!(saved.shader_gb, Shader::Simpletex);
+                assert_eq!(saved.shader_gbc, Shader::Simpletex);
+            }
+        }
+    }
+}
