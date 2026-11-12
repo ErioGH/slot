@@ -564,6 +564,7 @@ pub enum Shader {
     Dot,
     Simpletex,
     Shimmerless,
+    DarkGrittyRetro,
 }
 
 impl Shader {
@@ -575,6 +576,7 @@ impl Shader {
             Shader::Dot => "dot",
             Shader::Simpletex => "simpletex",
             Shader::Shimmerless => "shimmerless",
+            Shader::DarkGrittyRetro => "dark-gritty-retro",
         }
     }
 
@@ -586,6 +588,7 @@ impl Shader {
             Shader::Dot,
             Shader::Simpletex,
             Shader::Shimmerless,
+            Shader::DarkGrittyRetro,
         ]
         .into_iter()
         .find(|s| s.name() == name)

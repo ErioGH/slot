@@ -9,7 +9,8 @@ fn bundled_catalogs_preserve_the_existing_order() {
             Shader::Lcd3x,
             Shader::Grid,
             Shader::Dot,
-            Shader::Shimmerless
+            Shader::Shimmerless,
+            Shader::DarkGrittyRetro
         ]
     );
     assert_eq!(
@@ -39,7 +40,13 @@ fn only_gba_has_a_three_by_two_override() {
     for panel in [(720, 480), (1440, 960)] {
         assert_eq!(
             shader_catalog(Platform::Gba).choices(panel),
-            [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot]
+            [
+                Shader::Off,
+                Shader::Lcd3x,
+                Shader::Grid,
+                Shader::Dot,
+                Shader::DarkGrittyRetro
+            ]
         );
         assert_eq!(
             shader_catalog(Platform::Gb).choices(panel),
@@ -70,7 +77,8 @@ fn only_gba_has_a_three_by_two_override() {
                 Shader::Lcd3x,
                 Shader::Grid,
                 Shader::Dot,
-                Shader::Shimmerless
+                Shader::Shimmerless,
+                Shader::DarkGrittyRetro
             ]
         );
     }
@@ -86,15 +94,28 @@ fn a_panel_override_does_not_invalidate_a_saved_selection() {
 }
 
 #[test]
-fn gba_video_shares_the_cached_gba_catalog() {
-    assert!(std::ptr::eq(
-        shader_catalog(Platform::Gba),
-        shader_catalog(Platform::Gbav)
-    ));
-    assert!(std::ptr::eq(
-        shader_catalog(Platform::Gb),
-        shader_catalog(Platform::Gb)
-    ));
+fn dark_gritty_retro_is_only_available_for_gba_games() {
+    assert_eq!(
+        Shader::parse("dark-gritty-retro"),
+        Some(Shader::DarkGrittyRetro)
+    );
+    for panel in [(720, 480), (640, 480)] {
+        assert!(shader_catalog(Platform::Gba)
+            .choices(panel)
+            .contains(&Shader::DarkGrittyRetro));
+        for platform in [Platform::Gbav, Platform::Gb, Platform::Gbc] {
+            let catalog = shader_catalog(platform);
+            assert!(!catalog.supports(Shader::DarkGrittyRetro));
+            assert!(!catalog.choices(panel).contains(&Shader::DarkGrittyRetro));
+        }
+        let expected: Vec<_> = shader_catalog(Platform::Gba)
+            .choices(panel)
+            .iter()
+            .copied()
+            .filter(|s| *s != Shader::DarkGrittyRetro)
+            .collect();
+        assert_eq!(shader_catalog(Platform::Gbav).choices(panel), expected);
+    }
 }
 
 #[test]
@@ -184,7 +205,8 @@ fn aspect_ratio_comparison_handles_large_dimensions() {
             Shader::Lcd3x,
             Shader::Grid,
             Shader::Dot,
-            Shader::Shimmerless
+            Shader::Shimmerless,
+            Shader::DarkGrittyRetro
         ]
     );
 }

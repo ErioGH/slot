@@ -804,3 +804,19 @@ fn unavailable_and_unknown_saved_shaders_keep_the_existing_defaults() {
         assert_eq!(read.shader_gbc, defaults.shader_gbc);
     }
 }
+
+#[test]
+fn dark_gritty_retro_is_saved_for_gba_and_rejected_for_other_systems() {
+    let d = tmp_root();
+    let state = SlotState {
+        shader_gba: Shader::DarkGrittyRetro,
+        shader_gb: Shader::DarkGrittyRetro,
+        shader_gbc: Shader::DarkGrittyRetro,
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &state).unwrap();
+    let saved = read_slot_state(d.path());
+    assert_eq!(saved.shader_gba, Shader::DarkGrittyRetro);
+    assert_eq!(saved.shader_gb, Shader::Simpletex);
+    assert_eq!(saved.shader_gbc, Shader::Simpletex);
+}

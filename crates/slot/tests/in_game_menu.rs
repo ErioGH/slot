@@ -871,6 +871,17 @@ fn shader_shortcuts_follow_the_gba_panel_catalog_and_wrap_both_ways() {
                 let expected = a.screen_shader().step(choices, right);
                 a.apply(action);
                 assert_eq!(a.screen_shader(), expected);
+                assert_eq!(
+                    a.quick_value(QuickRow::Shader),
+                    a.quick_value(QuickRow::GbaShader)
+                );
+                if expected == Shader::DarkGrittyRetro {
+                    assert_eq!(a.screen_effect(), slot_gfx::ScreenEffect::DarkGrittyRetro);
+                    assert_eq!(
+                        a.quick_value(QuickRow::Shader),
+                        Some(QuickValue::DarkGrittyRetro)
+                    );
+                }
                 let saved = slot_store::read_slot_state(d.path());
                 assert_eq!(saved.shader_gba, expected);
                 assert_eq!(saved.shader_gb, Shader::Simpletex);

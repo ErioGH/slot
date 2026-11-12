@@ -80,12 +80,29 @@ impl ShaderCatalog {
 
 /// Embedded catalogs are validated once and shared for the process lifetime.
 pub fn shader_catalog(platform: Platform) -> &'static ShaderCatalog {
+    static GBAV: OnceLock<ShaderCatalog> = OnceLock::new();
     static GBA: OnceLock<ShaderCatalog> = OnceLock::new();
     static GB: OnceLock<ShaderCatalog> = OnceLock::new();
     static GBC: OnceLock<ShaderCatalog> = OnceLock::new();
     #[cfg(feature = "nds")]
     static NDS: OnceLock<ShaderCatalog> = OnceLock::new();
 
+    if platform == Platform::Gbav {
+        return GBAV.get_or_init(|| {
+            let gba = shader_catalog(Platform::Gba);
+            let filter = |choices: &[Shader]| {
+                choices
+                    .iter()
+                    .copied()
+                    .filter(|s| *s != Shader::DarkGrittyRetro)
+                    .collect()
+            };
+            ShaderCatalog {
+                available: filter(&gba.available),
+                available_3_2: gba.available_3_2.as_deref().map(filter),
+            }
+        });
+    }
     let (cache, text) = match platform.hardware() {
         Platform::Gba | Platform::Gbav => (&GBA, include_str!("../config/shaders/gba.ini")),
         Platform::Gb => (&GB, include_str!("../config/shaders/gb.ini")),

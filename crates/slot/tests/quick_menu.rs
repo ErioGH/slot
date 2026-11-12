@@ -482,7 +482,17 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     for (btn, want, shown) in [
         (Btn::Right, Shader::Dot, QuickValue::Dot),
         (Btn::Right, Shader::Shimmerless, QuickValue::Shimmerless),
+        (
+            Btn::Right,
+            Shader::DarkGrittyRetro,
+            QuickValue::DarkGrittyRetro,
+        ),
         (Btn::Right, Shader::Off, QuickValue::Off),
+        (
+            Btn::Left,
+            Shader::DarkGrittyRetro,
+            QuickValue::DarkGrittyRetro,
+        ),
         (Btn::Left, Shader::Shimmerless, QuickValue::Shimmerless),
         (Btn::Left, Shader::Dot, QuickValue::Dot),
         (Btn::Left, Shader::Grid, QuickValue::Grid),
@@ -1853,8 +1863,18 @@ fn gba_skips_shimmerless_on_a_three_by_two_panel_and_keeps_it_on_four_by_three()
     press(&mut a, Btn::Right);
     assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Dot));
     press(&mut a, Btn::Right);
+    assert_eq!(
+        a.quick_value(QuickRow::GbaShader),
+        Some(QuickValue::DarkGrittyRetro)
+    );
+    press(&mut a, Btn::Right);
     assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Off));
     assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Off);
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        read_slot_state(d.path()).shader_gba,
+        Shader::DarkGrittyRetro
+    );
     press(&mut a, Btn::Left);
     assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Dot);
 
@@ -2023,6 +2043,44 @@ fn shader_menus_cycle_their_catalogs_and_leave_other_systems_alone() {
                     assert_eq!(after.shader_gbc, expected.shader_gbc);
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn gba_video_leaves_the_saved_game_shader_intact_and_does_not_offer_it() {
+    for panel in [(720, 480), (640, 480)] {
+        let (d, mut a, _) = on_carousel();
+        a.set_panel(panel);
+        open_at(&mut a, QuickRow::GbaShader);
+        for _ in 0..6 {
+            if a.quick_value(QuickRow::GbaShader) == Some(QuickValue::DarkGrittyRetro) {
+                break;
+            }
+            press(&mut a, Btn::Right);
+        }
+        assert_eq!(
+            read_slot_state(d.path()).shader_gba,
+            Shader::DarkGrittyRetro
+        );
+        a.set_platform(Platform::Gbav);
+        assert_eq!(a.screen_shader(), Shader::Off);
+        assert_eq!(a.screen_effect(), slot_gfx::ScreenEffect::None);
+        assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Off));
+        assert_eq!(
+            read_slot_state(d.path()).shader_gba,
+            Shader::DarkGrittyRetro
+        );
+        a.set_platform(Platform::Gba);
+        assert_eq!(a.screen_shader(), Shader::DarkGrittyRetro);
+        assert_eq!(a.screen_effect(), slot_gfx::ScreenEffect::DarkGrittyRetro);
+        a.set_platform(Platform::Gbav);
+        for _ in 0..6 {
+            press(&mut a, Btn::Right);
+            assert_ne!(
+                a.quick_value(QuickRow::GbaShader),
+                Some(QuickValue::DarkGrittyRetro)
+            );
         }
     }
 }

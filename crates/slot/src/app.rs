@@ -4737,7 +4737,11 @@ impl App {
     }
 
     fn gba_shaders(&self) -> &'static [Shader] {
-        shader_catalog(Platform::Gba).choices(self.panel)
+        let platform = match self.playing_platform() {
+            Platform::Gbav => Platform::Gbav,
+            _ => Platform::Gba,
+        };
+        shader_catalog(platform).choices(self.panel)
     }
 
     fn gba_shader(&self) -> Shader {
@@ -4766,6 +4770,7 @@ impl App {
             Shader::Dot => ScreenEffect::Dot,
             Shader::Simpletex => ScreenEffect::Simpletex,
             Shader::Shimmerless => ScreenEffect::Shimmerless,
+            Shader::DarkGrittyRetro => ScreenEffect::DarkGrittyRetro,
         }
     }
 
@@ -6049,7 +6054,7 @@ impl App {
         let (shader, choices) = match self.playing_platform() {
             Platform::Gba | Platform::Gbav => (&mut self.state.shader_gba, gba_shaders),
             #[cfg(feature = "nds")]
-            Platform::Nds => (&mut self.state.shader_gba, gba_shaders),
+            Platform::Nds => return,
             Platform::Gb => (
                 &mut self.state.shader_gb,
                 shader_catalog(Platform::Gb).choices(self.panel),
@@ -6067,6 +6072,7 @@ impl App {
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
             Shader::Shimmerless => Toast::ShaderShimmerless,
+            Shader::DarkGrittyRetro => Toast::ShaderDarkGrittyRetro,
         };
         self.persist();
         self.hud.toast(said, self.now());
@@ -14766,6 +14772,7 @@ fn shader_value(shader: Shader) -> QuickValue {
         Shader::Dot => QuickValue::Dot,
         Shader::Simpletex => QuickValue::Simpletex,
         Shader::Shimmerless => QuickValue::Shimmerless,
+        Shader::DarkGrittyRetro => QuickValue::DarkGrittyRetro,
     }
 }
 
