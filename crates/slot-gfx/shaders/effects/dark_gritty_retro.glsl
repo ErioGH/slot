@@ -19,7 +19,8 @@
 */
 
 // Slot port: shared sampling, texture dimensions and output geometry.
-// Retro-v2 defaults. This pass reads the original image directly.
+// Fixed settings from the supplied dark-gritty-retro preset.
+// RGB_TRANSFORM is a percentage; all manual HSV offsets are zero.
 const float dgr_PIXEL_FILL = 0.75;
 const float dgr_PIXEL_INPUT_EXPONENT = 2.4;
 const float dgr_PIXEL_OUTPUT_EXPONENT = 1.0 / 2.2;
@@ -36,7 +37,7 @@ const float dgr_NEUTRAL_EPSILON = 0.000001;
 const float dgr_SHIFT_EPSILON = 0.0000001;
 
 // Offsets are (hue in turns, saturation, value).
-const float dgr_HSV_BLEND = 0.4;
+const float dgr_HSV_BLEND = 0.22;
 const vec3 dgr_CYAN_BLUE_SHIFT = vec3(-20.96 / dgr_DEGREES_PER_TURN, 0.163, -0.1922);
 const vec3 dgr_MAGENTA_SHIFT = vec3(-36.63 / dgr_DEGREES_PER_TURN, -0.761, -0.093);
 
@@ -44,17 +45,17 @@ const vec3 dgr_MAGENTA_SHIFT = vec3(-36.63 / dgr_DEGREES_PER_TURN, -0.761, -0.09
 const float dgr_GREEN_MAGENTA_MUTE = 0.135; // 0.45 * 0.3
 const float dgr_SATURATION = 0.76;
 const vec3 dgr_WARMTH_GAIN = vec3(1.024, 0.973, 0.91); // Original warmth mix at 0.3
-const float dgr_CONTRAST = 1.22;
+const float dgr_CONTRAST = 1.04;
 const float dgr_CONTRAST_PIVOT = 0.5;
-const float dgr_GAMMA_EXPONENT = 1.08;
-const float dgr_BRIGHTNESS = 0.98;
+const float dgr_GAMMA_EXPONENT = 1.1;
+const float dgr_BRIGHTNESS = 1.1;
 
 // Original luma approximation, evaluated in the sampled color space.
 const vec3 dgr_LUMA_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
 const float dgr_SHADOW_STRENGTH = 0.1;
 const float dgr_SHADOW_FADE_START = 0.05;
 const float dgr_SHADOW_FADE_END = 0.65;
-const float dgr_VIGNETTE_STRENGTH = 0.3;
+const float dgr_VIGNETTE_STRENGTH = 0.2;
 const float dgr_VIGNETTE_RADIUS_SCALE = 0.85;
 const float dgr_VIGNETTE_FADE_START = 0.30;
 const float dgr_VIGNETTE_FADE_END = 1.15;

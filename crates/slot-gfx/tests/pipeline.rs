@@ -1798,7 +1798,7 @@ unsafe fn dark_gritty_reference_program() -> u32 {
     let fragment = format!(
         "#version 330 core\n#define FRAGMENT\nuniform vec4 reference_color;\n{}",
         include_str!("fixtures/dark-gritty-retro.glsl")
-            .replace("SAMPLE_TEXTURE(Texture, tex_coord)", "reference_color")
+            .replace("texture2D(Texture,tex_coord)", "reference_color")
     );
     let program = gl::CreateProgram();
     for (kind, source) in [
@@ -1819,6 +1819,17 @@ unsafe fn dark_gritty_reference_program() -> u32 {
     let mut ok = 0;
     gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
     assert_ne!(ok, 0, "reference shader failed to link");
+    gl::UseProgram(program);
+    let preset: std::collections::BTreeMap<_, _> = include_str!("fixtures/dark-gritty-retro.glslp")
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .map(|(key, value)| (key.trim(), value.trim().trim_matches('"')))
+        .collect();
+    for name in preset["parameters"].split(';') {
+        let value: f32 = preset[name].parse().expect("numeric preset parameter");
+        let name = std::ffi::CString::new(name).unwrap();
+        gl::Uniform1f(gl::GetUniformLocation(program, name.as_ptr()), value);
+    }
     program
 }
 
