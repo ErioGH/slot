@@ -871,6 +871,7 @@ fn long_menu_values_keep_clear_of_their_labels_on_a_4_by_3_panel() {
     common::plain_wallpaper(d.path());
     let mut s = slot_store::read_slot_state(d.path());
     s.blending_gba = slot_store::Blending::Ghosting;
+    s.shader_gba = slot_store::Shader::DarkGrittyRetro;
     slot_store::write_slot_state(d.path(), &s).unwrap();
     std::fs::write(
         d.path().join("Config/shortcuts.txt"),
@@ -891,6 +892,7 @@ fn long_menu_values_keep_clear_of_their_labels_on_a_4_by_3_panel() {
     tap(&mut f, &mut input, Btn::A);
     down_to(&mut f, &mut input, QuickRow::ScreenGba);
     tap(&mut f, &mut input, Btn::A);
+    check(&mut f, &mut c, &mut input, QuickRow::GbaShader);
     check(&mut f, &mut c, &mut input, QuickRow::GbaBlending);
     let mut f = open(&mut c);
     tap(&mut f, &mut input, Btn::Menu);

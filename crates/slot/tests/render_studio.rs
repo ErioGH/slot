@@ -234,6 +234,28 @@ mod apply {
         }
     }
 
+    fn wait_for_art_faces(f: &mut Frontend, c: &mut Compositor) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        loop {
+            let now = f.app().now();
+            f.app_mut().tick_ms(now + 40);
+            f.compose(c);
+            let ready = f.app().studio_tex().is_some_and(|tex| {
+                [LabelKind::Real, LabelKind::Logo]
+                    .iter()
+                    .all(|kind| tex.faces.iter().any(|(face, _)| face == kind))
+            });
+            if ready && f.app().studio_wanted_text().is_empty() {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the fetched Real and Logo label faces never finished rendering"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
     fn label(path: &PathBuf, rgb: [u8; 3]) {
         let (w, h) = (1024u32, 901u32);
         let file = std::fs::File::create(path).unwrap();
@@ -284,15 +306,7 @@ mod apply {
                 failed: None,
             }));
         press(&mut f, Btn::A);
-        for _ in 0..200 {
-            let now = f.app().now();
-            f.app_mut().tick_ms(now + 40);
-            f.compose(&mut c);
-            if f.app().studio_tex().is_some_and(|t| t.faces.len() >= 3) {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
+        wait_for_art_faces(&mut f, &mut c);
         for _ in 0..60 {
             let now = f.app().now();
             f.app_mut().tick_ms(now + 40);
@@ -394,16 +408,7 @@ mod apply {
                 failed: None,
             }));
         press(&mut f, Btn::A);
-        for _ in 0..200 {
-            let now = f.app().now();
-            f.app_mut().tick_ms(now + 5);
-            f.compose(&mut c);
-            let done = f.app().studio_tex().is_some_and(|t| t.faces.len() >= 3);
-            if done && f.app().studio_wanted_text().is_empty() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
+        wait_for_art_faces(&mut f, &mut c);
         for _ in 0..60 {
             let now = f.app().now();
             f.app_mut().tick_ms(now + 40);

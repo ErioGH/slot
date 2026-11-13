@@ -2147,6 +2147,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]
@@ -2180,6 +2181,15 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_spanned"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
+dependencies = [
+ "serde_core",
 ]
 
 [[package]]
@@ -2282,6 +2292,7 @@ dependencies = [
  "slot-input",
  "slot-power",
  "slot-retro",
+ "slot-shader-build",
  "slot-store",
  "slot-ui",
  "tempfile",
@@ -2301,6 +2312,7 @@ dependencies = [
  "glutin-winit",
  "libloading",
  "raw-window-handle",
+ "slot-shader-build",
  "winit",
 ]
 
@@ -2328,10 +2340,20 @@ name = "slot-sfxcut"
 version = "0.1.0"
 
 [[package]]
+name = "slot-shader-build"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "slot-store"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "slot-shader-build",
  "tempfile",
  "unicode-normalization",
 ]
@@ -2348,6 +2370,7 @@ dependencies = [
  "slot-gfx",
  "slot-input",
  "slot-power",
+ "slot-shader-build",
  "slot-store",
  "tempfile",
  "usvg",
@@ -2551,6 +2574,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
+name = "toml"
+version = "1.1.6+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "920602543f0911ab71da12c50d59701da54c196d1a2bf5cb4b75667f137a406a"
+dependencies = [
+ "indexmap",
+ "serde_core",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_parser",
+ "toml_writer",
+ "winnow",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2579,6 +2617,12 @@ checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
 dependencies = [
  "winnow",
 ]
+
+[[package]]
+name = "toml_writer"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tracing"

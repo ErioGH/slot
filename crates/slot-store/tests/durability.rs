@@ -767,3 +767,64 @@ fn only_a_card_that_turned_turbo_off_reads_as_turbo_off() {
         "slot.state still writes the turbo switch"
     );
 }
+
+#[test]
+fn every_catalog_shader_round_trips_independently() {
+    let d = tmp_root();
+    for (platform, key) in [
+        (Platform::Gba, "shader_gba"),
+        (Platform::Gb, "shader_gb"),
+        (Platform::Gbc, "shader_gbc"),
+    ] {
+        for &shader in slot_store::shader_catalog(platform).available() {
+            let mut state = SlotState::default();
+            match platform {
+                Platform::Gba => state.shader_gba = shader,
+                Platform::Gb => state.shader_gb = shader,
+                Platform::Gbc => state.shader_gbc = shader,
+                _ => unreachable!(),
+            }
+            write_slot_state(d.path(), &state).unwrap();
+            let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+            assert!(text
+                .lines()
+                .any(|line| line == format!("{key}={}", shader.name())));
+            let read = read_slot_state(d.path());
+            assert_eq!(read.shader_gba, state.shader_gba);
+            assert_eq!(read.shader_gb, state.shader_gb);
+            assert_eq!(read.shader_gbc, state.shader_gbc);
+        }
+    }
+}
+
+#[test]
+fn unavailable_and_unknown_saved_shaders_keep_the_existing_defaults() {
+    let d = tmp_root();
+    for text in [
+        "shader_gba=simpletex\nshader_gb=dot\nshader_gbc=dot\n",
+        "shader_gba=unknown\nshader_gb=unknown\nshader_gbc=unknown\n",
+    ] {
+        std::fs::write(d.path().join("Config/slot.state"), text).unwrap();
+        let read = read_slot_state(d.path());
+        let defaults = SlotState::default();
+        assert_eq!(read.shader_gba, defaults.shader_gba);
+        assert_eq!(read.shader_gb, defaults.shader_gb);
+        assert_eq!(read.shader_gbc, defaults.shader_gbc);
+    }
+}
+
+#[test]
+fn dark_gritty_retro_is_saved_for_gba_and_rejected_for_other_systems() {
+    let d = tmp_root();
+    let state = SlotState {
+        shader_gba: Shader::DarkGrittyRetro,
+        shader_gb: Shader::DarkGrittyRetro,
+        shader_gbc: Shader::DarkGrittyRetro,
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &state).unwrap();
+    let saved = read_slot_state(d.path());
+    assert_eq!(saved.shader_gba, Shader::DarkGrittyRetro);
+    assert_eq!(saved.shader_gb, Shader::Simpletex);
+    assert_eq!(saved.shader_gbc, Shader::Simpletex);
+}

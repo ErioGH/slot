@@ -9,16 +9,7 @@ pub fn lcd3x_factors(x: f32, y: f32) -> [f32; 3] {
     OFFSETS.map(|o| yfactor * (BRIGHTEN_LCD + (2.0 * PI * x + o).sin()) / (BRIGHTEN_LCD + 1.0))
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ScreenEffect {
-    None,
-    Lcd3x,
-    Grid,
-    Dot,
-    Simpletex,
-    Shimmerless,
-    LcdGrid,
-}
+include!(concat!(env!("OUT_DIR"), "/screen_effect.rs"));
 
 impl ScreenEffect {
     pub fn mode(self) -> f32 {

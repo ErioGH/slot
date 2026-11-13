@@ -4,6 +4,7 @@
 
 /docs/
 /CLAUDE.md
+/AGENTS.md
 /.ralph/
 /.superpowers/
 
@@ -30,3 +31,4 @@
 .superpowers/
 /.task/
 /target-check
+/examples/

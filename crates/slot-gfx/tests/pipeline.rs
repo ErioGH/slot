@@ -9,8 +9,14 @@ static GL: Mutex<()> = Mutex::new(());
 
 fn compositor() -> Option<(MutexGuard<'static, ()>, HeadlessSurface, Compositor)> {
     let guard = GL.lock().unwrap_or_else(PoisonError::into_inner);
-    let surface = HeadlessSurface::new().ok()?;
-    let compositor = Compositor::new(&surface).ok()?;
+    let surface = match HeadlessSurface::new() {
+        Ok(surface) => surface,
+        Err(error) => {
+            eprintln!("skipping GPU check: {error}");
+            return None;
+        }
+    };
+    let compositor = Compositor::new(&surface).expect("generated game shader must compile");
     Some((guard, surface, compositor))
 }
 
@@ -1783,4 +1789,137 @@ fn blending_chosen_after_a_lone_frame_blends_the_next_frame_with_it() {
     let frame = c.read_window((OUT_W, OUT_H));
     let mixed = px(&frame, OUT_W as usize / 2, OUT_H as usize / 2)[1];
     assert!(mixed.abs_diff(0x80) <= 1, "white then black showed {mixed}");
+}
+
+// Compile the supplied RetroArch fragment independently of Slot's port. Flat
+// input colors isolate grading and pixel geometry from texture filtering.
+unsafe fn dark_gritty_reference_program() -> u32 {
+    let vertex = "#version 330 core\nout vec2 tex_coord;\nvoid main() {\nvec2 p = vec2(gl_VertexID & 1, gl_VertexID >> 1);\ntex_coord = vec2(p.x, 1.0 - p.y);\ngl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);\n}";
+    let fragment = format!(
+        "#version 330 core\n#define FRAGMENT\nuniform vec4 reference_color;\n{}",
+        include_str!("fixtures/dark-gritty-retro.glsl")
+            .replace("texture2D(Texture,tex_coord)", "reference_color")
+    );
+    let program = gl::CreateProgram();
+    for (kind, source) in [
+        (gl::VERTEX_SHADER, vertex),
+        (gl::FRAGMENT_SHADER, fragment.as_str()),
+    ] {
+        let shader = gl::CreateShader(kind);
+        let source = std::ffi::CString::new(source).unwrap();
+        gl::ShaderSource(shader, 1, &source.as_ptr(), std::ptr::null());
+        gl::CompileShader(shader);
+        let mut ok = 0;
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut ok);
+        assert_ne!(ok, 0, "reference shader failed to compile");
+        gl::AttachShader(program, shader);
+        gl::DeleteShader(shader);
+    }
+    gl::LinkProgram(program);
+    let mut ok = 0;
+    gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
+    assert_ne!(ok, 0, "reference shader failed to link");
+    gl::UseProgram(program);
+    let preset: std::collections::BTreeMap<_, _> = include_str!("fixtures/dark-gritty-retro.glslp")
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .map(|(key, value)| (key.trim(), value.trim().trim_matches('"')))
+        .collect();
+    for name in preset["parameters"].split(';') {
+        let value: f32 = preset[name].parse().expect("numeric preset parameter");
+        let name = std::ffi::CString::new(name).unwrap();
+        gl::Uniform1f(gl::GetUniformLocation(program, name.as_ptr()), value);
+    }
+    program
+}
+
+#[test]
+fn dark_gritty_retro_matches_the_supplied_shader_at_integer_and_fractional_scales() {
+    let _guard = GL.lock().unwrap_or_else(PoisonError::into_inner);
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let mut c = Compositor::new(&surface).expect("game shader must compile");
+    unsafe {
+        c.set_game_fills_frame(true);
+        let program = dark_gritty_reference_program();
+        let mut vao = 0;
+        gl::GenVertexArrays(1, &mut vao);
+        for window in [(720, 480), (640, 480), (720, 720)] {
+            c.set_game_layout(GameLayout {
+                panel: true,
+                rect: [0.0, 0.0, OUT_W as f32, OUT_H as f32],
+            });
+            for rgb in [
+                [0, 0, 0],
+                [128, 128, 128],
+                [255, 255, 255],
+                [230, 70, 140],
+                [80, 210, 60],
+                [190, 180, 30],
+            ] {
+                let (actual, _, _) = lcd_frame(&mut c, ScreenEffect::DarkGrittyRetro, window, rgb);
+                let (w, h) = c.frame_size();
+                let (w, h) = (w as usize, h as usize);
+                // read_frame leaves the compositor framebuffer bound.
+                gl::UseProgram(program);
+                let uniform = |name: &str| {
+                    let name = std::ffi::CString::new(name).unwrap();
+                    gl::GetUniformLocation(program, name.as_ptr())
+                };
+                gl::Uniform2f(uniform("TextureSize"), SRC_W as f32, SRC_H as f32);
+                gl::Uniform2f(uniform("InputSize"), SRC_W as f32, SRC_H as f32);
+                gl::Uniform2f(uniform("OutputSize"), w as f32, h as f32);
+                // upload_game accepts BGRA bytes.
+                gl::Uniform4f(
+                    uniform("reference_color"),
+                    rgb[2] as f32 / 255.0,
+                    rgb[1] as f32 / 255.0,
+                    rgb[0] as f32 / 255.0,
+                    1.0,
+                );
+                gl::Viewport(0, 0, w as i32, h as i32);
+                gl::Disable(gl::BLEND);
+                gl::BindVertexArray(vao);
+                gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+                let expected = c.read_frame();
+                let worst = actual
+                    .iter()
+                    .zip(&expected)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap();
+                assert!(
+                    worst <= 2,
+                    "{window:?}, {rgb:?}: max channel difference {worst}, at {:?}",
+                    actual
+                        .iter()
+                        .zip(&expected)
+                        .position(|(a, b)| a.abs_diff(*b) == worst)
+                        .map(|i| (i / 4 % w, i / 4 / w, actual[i], expected[i]))
+                );
+            }
+        }
+        gl::DeleteVertexArrays(1, &vao);
+        gl::DeleteProgram(program);
+    }
+}
+
+#[test]
+fn generated_registration_preserves_existing_effect_modes() {
+    for (mode, effect) in [
+        ScreenEffect::None,
+        ScreenEffect::Lcd3x,
+        ScreenEffect::Grid,
+        ScreenEffect::Dot,
+        ScreenEffect::Simpletex,
+        ScreenEffect::Shimmerless,
+        ScreenEffect::LcdGrid,
+        ScreenEffect::DarkGrittyRetro,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(effect.mode(), mode as f32);
+    }
 }

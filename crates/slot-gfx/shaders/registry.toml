@@ -1,0 +1,99 @@
+# Registration only: system availability and cycling order belong in
+# slot-store/config/shaders/*.ini. Graphics registration is generated at build time.
+# Effect order preserves the existing GLSL source assembly order.
+
+[[effects]]
+id = "None"
+mode = 0
+
+[[effects]]
+id = "DarkGrittyRetro"
+mode = 7
+source = "effects/dark_gritty_retro.glsl"
+entry = "effect_dark_gritty_retro"
+
+[[effects]]
+id = "LcdGrid"
+mode = 6
+source = "effects/lcd_grid.glsl"
+entry = "effect_lcd_grid"
+
+[[effects]]
+id = "Shimmerless"
+mode = 5
+source = "effects/shimmerless.glsl"
+entry = "effect_shimmerless"
+
+[[effects]]
+id = "Simpletex"
+mode = 4
+source = "effects/simpletex.glsl"
+entry = "effect_simpletex"
+
+[[effects]]
+id = "Dot"
+mode = 3
+source = "effects/dot.glsl"
+entry = "effect_dot"
+
+[[effects]]
+id = "Grid"
+mode = 2
+source = "effects/grid.glsl"
+entry = "effect_grid"
+
+[[effects]]
+id = "Lcd3x"
+mode = 1
+source = "effects/lcd3x.glsl"
+entry = "effect_lcd3x"
+
+# Shader order preserves the existing Shader enum and shader UI order.
+[[shaders]]
+id = "Off"
+name = "off"
+label = "Off"
+gba_video = true
+mapping = { kind = "fixed", effect = "None" }
+
+[[shaders]]
+id = "Lcd3x"
+name = "lcd3x"
+label = "LCD"
+gba_video = true
+mapping = { kind = "lcd", panel_3_2 = "Lcd3x", other = "LcdGrid" }
+
+[[shaders]]
+id = "Grid"
+name = "grid"
+label = "Grid"
+gba_video = true
+mapping = { kind = "fixed", effect = "Grid" }
+
+[[shaders]]
+id = "Dot"
+name = "dot"
+label = "Dot"
+gba_video = true
+mapping = { kind = "fixed", effect = "Dot" }
+
+[[shaders]]
+id = "Simpletex"
+name = "simpletex"
+label = "Simpletex"
+gba_video = true
+mapping = { kind = "fixed", effect = "Simpletex" }
+
+[[shaders]]
+id = "Shimmerless"
+name = "shimmerless"
+label = "Shimmerless"
+gba_video = true
+mapping = { kind = "fixed", effect = "Shimmerless" }
+
+[[shaders]]
+id = "DarkGrittyRetro"
+name = "dark-gritty-retro"
+label = "Dark Gritty Retro"
+gba_video = false
+mapping = { kind = "fixed", effect = "DarkGrittyRetro" }

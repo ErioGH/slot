@@ -4,6 +4,7 @@ use crate::atomic::atomic_write;
 use crate::core::Core;
 use crate::gb_palette::{GbColors, GbPalette};
 use crate::platform::Platform;
+use crate::shaders::shader_catalog;
 use crate::zone::Zone;
 
 pub const BRIGHTNESS_MAX: u8 = 9;
@@ -555,57 +556,9 @@ impl SlotState {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Shader {
-    Off,
-    Lcd3x,
-    Grid,
-    Dot,
-    Simpletex,
-    Shimmerless,
-}
+include!(concat!(env!("OUT_DIR"), "/shader.rs"));
 
 impl Shader {
-    pub const GBA: [Shader; 5] = [
-        Shader::Off,
-        Shader::Lcd3x,
-        Shader::Grid,
-        Shader::Dot,
-        Shader::Shimmerless,
-    ];
-    pub const GBA_3_2: [Shader; 4] = [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot];
-    pub const GB: [Shader; 5] = [
-        Shader::Off,
-        Shader::Lcd3x,
-        Shader::Grid,
-        Shader::Simpletex,
-        Shader::Shimmerless,
-    ];
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Shader::Off => "off",
-            Shader::Lcd3x => "lcd3x",
-            Shader::Grid => "grid",
-            Shader::Dot => "dot",
-            Shader::Simpletex => "simpletex",
-            Shader::Shimmerless => "shimmerless",
-        }
-    }
-
-    pub fn parse(name: &str) -> Option<Shader> {
-        [
-            Shader::Off,
-            Shader::Lcd3x,
-            Shader::Grid,
-            Shader::Dot,
-            Shader::Simpletex,
-            Shader::Shimmerless,
-        ]
-        .into_iter()
-        .find(|s| s.name() == name)
-    }
-
     pub fn step(self, choices: &[Shader], right: bool) -> Shader {
         let n = choices.len();
         let at = choices.iter().position(|&s| s == self).unwrap_or(0);
@@ -948,7 +901,10 @@ fn parse(text: &str) -> Option<SlotState> {
             "colour_correction_gba" => colour_correction_gba = flag(value),
             "colour_correction_gb" => colour_correction_gb = flag(value),
             "colour_correction_gbc" => colour_correction_gbc = flag(value),
-            "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
+            "shader_gba" => {
+                shader_gba =
+                    Shader::parse(value).filter(|s| shader_catalog(Platform::Gba).supports(*s))
+            }
             "auto_load" => auto_load = auto_load_value(value),
             "resume_insert" => resume_insert = flag(value),
             "resume_power_on" => resume_power_on = flag(value),
@@ -989,8 +945,14 @@ fn parse(text: &str) -> Option<SlotState> {
             "kid_shelf" => kid_shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
             "collection" => collection = Some(value.to_string()).filter(|v| !v.is_empty()),
             "gba_video" => gba_video = flag(value),
-            "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
-            "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
+            "shader_gb" => {
+                shader_gb =
+                    Shader::parse(value).filter(|s| shader_catalog(Platform::Gb).supports(*s))
+            }
+            "shader_gbc" => {
+                shader_gbc =
+                    Shader::parse(value).filter(|s| shader_catalog(Platform::Gbc).supports(*s))
+            }
             _ => {}
         }
     }

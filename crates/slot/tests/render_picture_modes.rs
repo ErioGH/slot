@@ -232,3 +232,61 @@ fn l_widens_the_picture_like_a_gba_and_r_gives_back_the_centred_picture() {
         "R left the panel dark"
     );
 }
+
+#[test]
+fn dark_gritty_retro_preserves_picture_bounds_across_scaling_and_cropping() {
+    let _core = core_lock();
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let mut c = Compositor::new(&surface).expect("game shaders compile");
+    let d = common::tmp_root_with_carts(&["Emerald"]);
+    let mut state = slot_store::read_slot_state(d.path());
+    state.shader_gba = slot_store::Shader::DarkGrittyRetro;
+    slot_store::write_slot_state(d.path(), &state).unwrap();
+    let mut app = common::app_playing_in(d.path(), "Emerald");
+    let source: Vec<u8> = (0..slot_gfx::SRC_W * slot_gfx::SRC_H)
+        .flat_map(|i| [100 + (i % 80) as u8, 140, 220, 0])
+        .collect();
+    for panel in [(720, 480), (640, 480), (720, 720)] {
+        app.set_panel(panel);
+        for sizing in [
+            slot_gfx::Sizing::Integer,
+            slot_gfx::Sizing::Fit,
+            slot_gfx::Sizing::Panel,
+        ] {
+            for uv in [[0.0, 0.0, 1.0, 1.0], [0.125, 0.125, 0.75, 0.75]] {
+                c.fit(panel);
+                c.set_game_layout(slot_gfx::game_layout(panel, (240, 160), sizing));
+                c.set_game_source_rect(uv);
+                c.set_screen_power(1.0);
+                let mut render = |effect| {
+                    c.set_screen_effect(effect);
+                    c.begin_frame();
+                    c.upload_game(&source);
+                    c.draw_game();
+                    c.read_frame()
+                };
+                let plain = render(slot_gfx::ScreenEffect::None);
+                let effect = render(app.screen_effect());
+                let mut changed = 0;
+                for (a, b) in plain.chunks_exact(4).zip(effect.chunks_exact(4)) {
+                    let picture = a[0] > 80 && a[1] > 80 && a[2] > 80;
+                    if picture {
+                        assert!(
+                            b[..3].iter().all(|v| *v > 0),
+                            "effect left a hole: {panel:?} {sizing:?} {uv:?}"
+                        );
+                        changed += usize::from(a != b);
+                    } else {
+                        assert_eq!(a, b, "effect escaped picture: {panel:?} {sizing:?} {uv:?}");
+                    }
+                }
+                assert!(
+                    changed > 1000,
+                    "effect missing: {panel:?} {sizing:?} {uv:?}"
+                );
+            }
+        }
+    }
+}

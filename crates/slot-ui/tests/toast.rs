@@ -5,6 +5,46 @@ use slot_ui::{
 };
 
 #[test]
+fn generated_shader_toasts_keep_their_text_and_draw_the_matching_texture() {
+    let all = Toast::all();
+    let textures: Vec<_> = (0..all.len())
+        .map(|index| TexId::from_raw(index + 1_000))
+        .collect();
+    let mut hud = Hud::new();
+    hud.set_toasts(textures.clone());
+    for (index, (toast, label)) in [
+        (Toast::ShaderOff, "Shader: Off"),
+        (Toast::ShaderLcd3x, "Shader: LCD"),
+        (Toast::ShaderGrid, "Shader: Grid"),
+        (Toast::ShaderDot, "Shader: Dot"),
+        (Toast::ShaderSimpletex, "Shader: Simpletex"),
+        (Toast::ShaderShimmerless, "Shader: Shimmerless"),
+        (Toast::ShaderDarkGrittyRetro, "Shader: Dark Gritty Retro"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(toast.index(), index + 14);
+        assert_eq!(all[toast.index()], toast);
+        assert_eq!(toast.text(), label);
+        hud.toast(toast, 0);
+        let mut out = Vec::new();
+        let canvas = Canvas { w: 640.0, h: 480.0 };
+        hud.draw(canvas, 0, &mut out);
+        let drawn: Vec<_> = out
+            .iter()
+            .filter_map(|draw| match draw {
+                Draw::Tex { tex, .. } => Some(*tex),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(drawn, [textures[toast.index()]], "{toast:?}");
+        let (x, y, w, h) = toast_rect(canvas, toast);
+        assert!(x >= 0.0 && y >= 0.0 && x + w <= canvas.w && y + h <= canvas.h);
+    }
+}
+
+#[test]
 fn saving_and_loading_say_which_one_happened() {
     assert_eq!(Toast::StateSaved.text(), "State Saved");
     assert_eq!(Toast::StateLoaded.text(), "State Loaded");
@@ -42,7 +82,7 @@ fn the_link_ending_says_who_ended_it() {
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..32],
+        all[..33],
         [
             Toast::StateSaved,
             Toast::StateLoaded,
@@ -64,6 +104,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
             Toast::ShaderDot,
             Toast::ShaderSimpletex,
             Toast::ShaderShimmerless,
+            Toast::ShaderDarkGrittyRetro,
             Toast::CardUnwritable,
             Toast::CardRepair,
             Toast::CardRepairCharge,
@@ -82,12 +123,12 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let palettes = GbColors::all().count();
     assert_eq!(palettes, 49);
     assert_eq!(
-        all[32..32 + palettes],
+        all[33..33 + palettes],
         GbColors::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
     assert_eq!(
-        all[32 + palettes..],
+        all[33 + palettes..],
         QuickRow::ALL
             .into_iter()
             .filter(|r| r.binds())

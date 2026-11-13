@@ -933,258 +933,7 @@ impl QuickRow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum QuickValue {
-    Speed1_5,
-    Speed2,
-    Speed3,
-    Speed4,
-    Speed6,
-    On,
-    Off,
-    Lcd3x,
-    Grid,
-    Dot,
-    Simpletex,
-    Shimmerless,
-    Dark,
-    Light,
-    Show,
-    Hide,
-    Low,
-    Medium,
-    High,
-    Min1,
-    Min3,
-    Min5,
-    Min10,
-    Min15,
-    Min30,
-    Level0,
-    Level1,
-    Level2,
-    Level3,
-    Level4,
-    Level5,
-    Level6,
-    Level7,
-    Level8,
-    Level9,
-    Level10,
-    Level11,
-    Level12,
-    Level13,
-    Level14,
-    Level15,
-    SpFrame,
-    Integer,
-    Fit,
-    Classic,
-    FullScreen,
-    Mix,
-    Ghosting,
-    Https,
-    Http,
-    All,
-    Collections,
-    OneShelf,
-    Shelves,
-    Both,
-    Icon,
-    Percentage,
-}
-
-impl QuickValue {
-    pub const ALL: [QuickValue; 57] = [
-        QuickValue::Speed1_5,
-        QuickValue::Speed2,
-        QuickValue::Speed3,
-        QuickValue::Speed4,
-        QuickValue::Speed6,
-        QuickValue::On,
-        QuickValue::Off,
-        QuickValue::Lcd3x,
-        QuickValue::Grid,
-        QuickValue::Dot,
-        QuickValue::Simpletex,
-        QuickValue::Shimmerless,
-        QuickValue::Dark,
-        QuickValue::Light,
-        QuickValue::Show,
-        QuickValue::Hide,
-        QuickValue::Low,
-        QuickValue::Medium,
-        QuickValue::High,
-        QuickValue::Min1,
-        QuickValue::Min3,
-        QuickValue::Min5,
-        QuickValue::Min10,
-        QuickValue::Min15,
-        QuickValue::Min30,
-        QuickValue::Level0,
-        QuickValue::Level1,
-        QuickValue::Level2,
-        QuickValue::Level3,
-        QuickValue::Level4,
-        QuickValue::Level5,
-        QuickValue::Level6,
-        QuickValue::Level7,
-        QuickValue::Level8,
-        QuickValue::Level9,
-        QuickValue::Level10,
-        QuickValue::Level11,
-        QuickValue::Level12,
-        QuickValue::Level13,
-        QuickValue::Level14,
-        QuickValue::Level15,
-        QuickValue::SpFrame,
-        QuickValue::Integer,
-        QuickValue::Fit,
-        QuickValue::Classic,
-        QuickValue::FullScreen,
-        QuickValue::Mix,
-        QuickValue::Ghosting,
-        QuickValue::Https,
-        QuickValue::Http,
-        QuickValue::All,
-        QuickValue::Collections,
-        QuickValue::OneShelf,
-        QuickValue::Shelves,
-        QuickValue::Both,
-        QuickValue::Icon,
-        QuickValue::Percentage,
-    ];
-
-    pub const LEVELS: [QuickValue; 16] = [
-        QuickValue::Level0,
-        QuickValue::Level1,
-        QuickValue::Level2,
-        QuickValue::Level3,
-        QuickValue::Level4,
-        QuickValue::Level5,
-        QuickValue::Level6,
-        QuickValue::Level7,
-        QuickValue::Level8,
-        QuickValue::Level9,
-        QuickValue::Level10,
-        QuickValue::Level11,
-        QuickValue::Level12,
-        QuickValue::Level13,
-        QuickValue::Level14,
-        QuickValue::Level15,
-    ];
-
-    pub const LID_OFF: [QuickValue; 6] = [
-        QuickValue::Min1,
-        QuickValue::Min3,
-        QuickValue::Min5,
-        QuickValue::Min10,
-        QuickValue::Min15,
-        QuickValue::Min30,
-    ];
-
-    pub fn index(self) -> usize {
-        self as usize
-    }
-
-    pub fn text(self) -> &'static str {
-        match self {
-            QuickValue::Speed1_5 => "1.5×",
-            QuickValue::Speed2 => "2×",
-            QuickValue::Speed3 => "3×",
-            QuickValue::Speed4 => "4×",
-            QuickValue::Speed6 => "6×",
-            QuickValue::On => "On",
-            QuickValue::Off => "Off",
-            QuickValue::Lcd3x => "LCD",
-            QuickValue::Grid => "Grid",
-            QuickValue::Dot => "Dot",
-            QuickValue::Simpletex => "Simpletex",
-            QuickValue::Shimmerless => "Shimmerless",
-            QuickValue::Dark => "Dark",
-            QuickValue::Light => "Light",
-            QuickValue::Show => "Show",
-            QuickValue::Hide => "Hide",
-            QuickValue::All => "All",
-            QuickValue::Collections => "Collections",
-            QuickValue::OneShelf => "One Shelf",
-            QuickValue::Shelves => "Shelves",
-            QuickValue::Both => "Both",
-            QuickValue::Icon => "Icon",
-            QuickValue::Percentage => "Percentage",
-            QuickValue::Low => "25%",
-            QuickValue::Medium => "45%",
-            QuickValue::High => "65%",
-            QuickValue::Min1 => "1 min",
-            QuickValue::Min3 => "3 min",
-            QuickValue::Min5 => "5 min",
-            QuickValue::Min10 => "10 min",
-            QuickValue::Min15 => "15 min",
-            QuickValue::Min30 => "30 min",
-            QuickValue::Level0 => "0",
-            QuickValue::Level1 => "1",
-            QuickValue::Level2 => "2",
-            QuickValue::Level3 => "3",
-            QuickValue::Level4 => "4",
-            QuickValue::Level5 => "5",
-            QuickValue::Level6 => "6",
-            QuickValue::Level7 => "7",
-            QuickValue::Level8 => "8",
-            QuickValue::Level9 => "9",
-            QuickValue::Level10 => "10",
-            QuickValue::Level11 => "11",
-            QuickValue::Level12 => "12",
-            QuickValue::Level13 => "13",
-            QuickValue::Level14 => "14",
-            QuickValue::Level15 => "15",
-            QuickValue::SpFrame => "SP Screen",
-            QuickValue::Integer => "Integer",
-            QuickValue::Fit => "Fit",
-            QuickValue::Classic => "Classic",
-            QuickValue::FullScreen => "Full Screen",
-            QuickValue::Mix => "Mix",
-            QuickValue::Ghosting => "Ghosting",
-            QuickValue::Https => "HTTPS",
-            QuickValue::Http => "HTTP",
-        }
-    }
-
-    pub fn level(n: u8) -> QuickValue {
-        QuickValue::LEVELS[usize::from(n).min(QuickValue::LEVELS.len() - 1)]
-    }
-
-    pub fn speed(quarters: u8) -> Option<QuickValue> {
-        match quarters {
-            0 => Some(QuickValue::Off),
-            6 => Some(QuickValue::Speed1_5),
-            8 => Some(QuickValue::Speed2),
-            12 => Some(QuickValue::Speed3),
-            16 => Some(QuickValue::Speed4),
-            24 => Some(QuickValue::Speed6),
-            _ => None,
-        }
-    }
-
-    pub fn minutes(self) -> Option<u8> {
-        Some(match self {
-            QuickValue::Min1 => 1,
-            QuickValue::Min3 => 3,
-            QuickValue::Min5 => 5,
-            QuickValue::Min10 => 10,
-            QuickValue::Min15 => 15,
-            QuickValue::Min30 => 30,
-            _ => return None,
-        })
-    }
-
-    pub fn flag(on: bool) -> QuickValue {
-        if on {
-            QuickValue::On
-        } else {
-            QuickValue::Off
-        }
-    }
-}
+include!(concat!(env!("OUT_DIR"), "/quick_values.rs"));
 
 pub const QUICK_PITCH: f32 = 52.0;
 pub const QUICK_EDGE: f32 = 32.0;
@@ -1968,4 +1717,25 @@ fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
         tex,
         alpha: 1.0,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dark_gritty_retro_fits_beside_the_shader_label_on_a_narrow_panel() {
+        assert!(QuickValue::ALL.contains(&QuickValue::DarkGrittyRetro));
+        assert_eq!(QuickValue::DarkGrittyRetro.text(), "Dark Gritty Retro");
+        for lit in [false, true] {
+            let label = quick_label_face(QuickRow::GbaShader, lit);
+            let value = quick_value_face(QuickValue::DarkGrittyRetro.text(), lit);
+            assert!(!value.rgba.is_empty());
+            let pad = MENU_PAD as f32;
+            let label_end = QUICK_LABEL_X + label.w as f32 - 2.0 * pad;
+            let room = 640.0 - QUICK_EDGE - label_end - QUICK_VALUE_GAP;
+            let ink_width = value.w as f32 - 2.0 * pad;
+            assert!(ink_width * VALUE_MIN_SCALE <= room);
+        }
+    }
 }

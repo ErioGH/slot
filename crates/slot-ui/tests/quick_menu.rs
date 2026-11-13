@@ -19,6 +19,49 @@ fn ink_columns(f: &UndoFace) -> (u32, u32) {
 }
 
 #[test]
+fn every_value_sits_in_all_at_its_texture_index_and_has_a_face() {
+    for (index, value) in QuickValue::ALL.into_iter().enumerate() {
+        assert_eq!(value.index(), index, "{value:?}");
+        for lit in [false, true] {
+            let face = quick_value_face(value.text(), lit);
+            assert!(
+                face.rgba.chunks_exact(4).any(|pixel| pixel[3] > 0),
+                "{value:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn generated_shader_values_preserve_their_text_indices_and_shared_off() {
+    assert_eq!(QuickValue::ALL.len(), 58);
+    for (index, (value, label)) in [
+        (QuickValue::Off, "Off"),
+        (QuickValue::Lcd3x, "LCD"),
+        (QuickValue::Grid, "Grid"),
+        (QuickValue::Dot, "Dot"),
+        (QuickValue::Simpletex, "Simpletex"),
+        (QuickValue::Shimmerless, "Shimmerless"),
+        (QuickValue::DarkGrittyRetro, "Dark Gritty Retro"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(value.index(), index + 6);
+        assert_eq!(value.text(), label);
+    }
+    assert_eq!(
+        QuickValue::ALL
+            .into_iter()
+            .filter(|value| *value == QuickValue::Off)
+            .count(),
+        1
+    );
+    assert_eq!(QuickValue::flag(false), QuickValue::Off);
+    assert_eq!(QuickValue::speed(0), Some(QuickValue::Off));
+}
+
+#[test]
 fn the_type_sits_exactly_menu_pad_in_from_both_sides_of_its_face() {
     for f in [
         quick_label_face(QuickRow::FastForwardSound, true),
@@ -277,6 +320,7 @@ fn the_values_read_as_the_menu_prints_them() {
             "Dot",
             "Simpletex",
             "Shimmerless",
+            "Dark Gritty Retro",
             "Dark",
             "Light",
             "Show",
