@@ -103,6 +103,9 @@ impl ShotLoader {
         q.generation += 1;
         q.full = None;
         q.thumbs.clear();
+        // An in-flight result belongs to the old generation and will be dropped.
+        // Let the reopened gallery queue that path again.
+        q.working = None;
         q.generation
     }
 
@@ -164,5 +167,38 @@ fn work(shared: &Shared, done: &Sender<Loaded>, decoded: &AtomicUsize) {
         if done.send(loaded).is_err() {
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reopening_can_request_a_thumbnail_still_decoding_from_the_previous_generation() {
+        let (_tx, done) = channel();
+        let path = PathBuf::from("shot.png");
+        // Model a paused worker so cancellation always happens during a decode.
+        let shared = Arc::new((
+            Mutex::new(Queue {
+                working: Some(path.clone()),
+                ..Queue::default()
+            }),
+            Condvar::new(),
+        ));
+        let mut loader = ShotLoader {
+            shared,
+            done,
+            decoded: Arc::default(),
+        };
+        let generation = loader.cancel();
+        loader.queue_thumbs(vec![path.clone()], 218, 145);
+        let queue = loader.queue();
+        let job = queue
+            .thumbs
+            .front()
+            .expect("reopened thumbnail was dropped");
+        assert_eq!(job.path, path);
+        assert_eq!(job.generation, generation);
     }
 }
